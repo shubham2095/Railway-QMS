@@ -60,7 +60,7 @@ npm run db:setup              # creates DB "rqms", all tables, roles and demo da
 ```
 
 **B – phpMyAdmin**
-1. Open <http://localhost/phpmyadmin> → **Import** → choose `database/schema.sql` → **Go** (it creates the `rqms` database).
+1. Open <http://localhost/phpmyadmin> → **New** → create a database named `rqms` (collation `utf8mb4_unicode_ci`) → open it → **Import** → choose `database/schema.sql` → **Go**.
 2. Then, in `backend/`: `copy .env.example .env`, `npm install`, `npm run db:seed` to load roles, permissions and demo data.
 
 > `npm run db:setup` never wipes existing data. Use `npm run db:fresh` when you *want* a clean reset.
@@ -86,6 +86,10 @@ npm run install:all     # once, from the repo root
 npm run build           # builds frontend/dist
 npm start               # Express serves the API *and* the React app on http://localhost:5000
 ```
+
+### Deploy to a server / Hostinger subdomain
+See **[docs/DEPLOY-HOSTINGER.md](docs/DEPLOY-HOSTINGER.md)** – step-by-step for Hostinger's *Node.js Web App* + MySQL (no SSH needed:
+set `AUTO_BOOTSTRAP=true` and the app creates its tables, roles and first admin on first start). It also covers a VPS.
 
 ### Demo accounts
 All seeded accounts use the password **`password`**.
@@ -124,7 +128,10 @@ through the real eligibility + priority engine, so the waiting list is populated
 |---|---|---|
 | `PORT` | `5000` | API port |
 | `DB_HOST` `DB_PORT` `DB_DATABASE` `DB_USERNAME` `DB_PASSWORD` | `127.0.0.1` `3306` `rqms` `root` *(empty)* | MySQL connection (XAMPP defaults) |
+| `DATABASE_URL` | – | Optional single connection string `mysql://user:pass@host:3306/db` (overrides the `DB_*` values) |
 | `JWT_SECRET` | – | **Required in production.** Long random string used to sign session cookies |
+| `AUTO_BOOTSTRAP` `ADMIN_EMAIL` `ADMIN_PASSWORD` | off | On first start: create tables + roles and the first super admin (for hosts without a shell) |
+| `STORAGE_DIR` | `backend/storage` | Where uploads and generated certificates are kept |
 | `SESSION_LIFETIME` | `120` | Idle session lifetime in minutes |
 | `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
 | `APP_TIMEZONE` | `Asia/Kolkata` | Timezone used for all stored timestamps |
@@ -201,9 +208,9 @@ The business rules are ported 1:1. These small hardening changes were made while
 
 ## Production checklist
 * Set a strong `JWT_SECRET`, `NODE_ENV=production`, `COOKIE_SECURE=true` (behind HTTPS), and a real MySQL password.
-* `npm run build && npm start`, ideally behind a reverse proxy (nginx / IIS / Apache) with HTTPS.
+* `npm run build && npm start` (runs `server.js`), ideally behind a reverse proxy (nginx / IIS / Apache) with HTTPS.
 * Back up the `rqms` database **and** `backend/storage/`.
-* Change or disable the demo accounts (*Users & Roles*).
+* Do not deploy the demo accounts: use `AUTO_BOOTSTRAP` + `ADMIN_*` (or `npm run db:admin`) for the first admin; the production login page hides the demo buttons unless built with `VITE_SHOW_DEMO=true`.
 
 ## License
 MIT

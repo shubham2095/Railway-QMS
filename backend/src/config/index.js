@@ -62,6 +62,8 @@ export const config = {
     adminEmail: process.env.ADMIN_EMAIL || '',
     adminPassword: process.env.ADMIN_PASSWORD || '',
     adminName: process.env.ADMIN_NAME || 'Administrator',
+    // Opt-in: also load the demo accounts (password "password") + sample data. Never enable on a public site you care about.
+    seedDemo: process.env.SEED_DEMO === 'true',
   },
 
   auth: {

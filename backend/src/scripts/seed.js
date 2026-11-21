@@ -114,6 +114,9 @@ export async function seedDemo(roleIds) {
     const profileId = await upsert('employee_profiles', { employee_id: empId }, {
       user_id: userId,
       pf_number: `PF${empId.replace(/\D/g, '')}`,
+      father_name: 'Ram Prasad',
+      date_of_birth: yearsAgo(32),
+      current_address: 'Railway Colony, New Delhi - 110001',
       designation: roleSlug.charAt(0).toUpperCase() + roleSlug.slice(1).replaceAll('_', ' '),
       department: 'Railways',
       station: 'NDLS',
@@ -135,6 +138,9 @@ export async function seedDemo(roleIds) {
   const profile2 = await upsert('employee_profiles', { employee_id: 'EMP1002' }, {
     user_id: user2,
     pf_number: 'PF1002',
+    father_name: 'Suresh Iyer',
+    date_of_birth: yearsAgo(42),
+    current_address: 'Railway Colony A, New Delhi - 110001',
     designation: 'Senior Technician',
     department: 'Railways',
     station: 'NDLS',

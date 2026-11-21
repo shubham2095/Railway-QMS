@@ -71,6 +71,9 @@ CREATE TABLE employee_profiles (
   user_id              BIGINT UNSIGNED NOT NULL,
   employee_id          VARCHAR(255) NOT NULL,
   pf_number            VARCHAR(50)  NULL,                              -- Provident Fund number
+  father_name          VARCHAR(120) NULL,
+  date_of_birth        DATE NULL,
+  current_address      VARCHAR(500) NULL,
   designation          VARCHAR(255) NULL,
   department           VARCHAR(255) NULL,
   station              VARCHAR(255) NULL,

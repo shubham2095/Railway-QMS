@@ -53,6 +53,11 @@ export default function ProfileShow() {
           ['Employee ID', <span className="mono">{profile.employee_id}</span>],
           ['PF Number', profile.pf_number ? <span className="mono">{profile.pf_number}</span> : '—'],
           ['Name', user.name],
+          ["Father's Name", profile.father_name || '—'],
+          ['Date of Birth', fmtDate(profile.date_of_birth)],
+          ['Phone number', user.mobile || '—'],
+          ['Email ID', user.email],
+          ['Current Address', profile.current_address || '—', 'col-span-2 sm:col-span-3 whitespace-pre-line'],
           ['Designation', profile.designation || '—'],
           ['Department', profile.department || '—'],
           ['Station', profile.station || '—'],
@@ -65,16 +70,14 @@ export default function ProfileShow() {
           ['Date of Joining', fmtDate(profile.date_of_joining)],
           ['Retirement Date', fmtDate(profile.retirement_date)],
           ['Service Years', `${profile.service_years} yr`],
-          ['Phone number', user.mobile || '—'],
-          ['Email ID', user.email],
         ];
         return (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
               <Card title="Service particulars" subtitle="Module 1 — Employee profile" actions={<Link to="/profile/edit" className="btn-ghost btn-xs">Edit</Link>}>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
-                  {rows.map(([label, value]) => (
-                    <div key={label}>
+                  {rows.map(([label, value, cls = '']) => (
+                    <div key={label} className={cls}>
                       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</dt>
                       <dd className="mt-0.5 break-words text-ink">{value}</dd>
                     </div>

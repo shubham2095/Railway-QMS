@@ -59,7 +59,8 @@ const isoYears = (n) => { const d = new Date(); d.setFullYear(d.getFullYear() + 
 /** A complete, valid profile payload (every service field is required). */
 const fullProfile = (over = {}) => ({
   name: 'Test Employee', mobile: '9876543210',
-  employee_id: 'EMP5555', pf_number: 'PF5555', designation: 'Technician', department: 'Railways',
+  employee_id: 'EMP5555', pf_number: 'PF5555', father_name: 'Mohan Lal', date_of_birth: isoYears(-30),
+  current_address: '12 Railway Colony, New Delhi 110001', designation: 'Technician', department: 'Railways',
   station: 'NDLS', division: 'Delhi', railway_zone: 'Northern Railway', category: 'GENERAL', service_type: 'non_essential',
   grade_pay: 2800, pay_level: 'Level-5', date_of_joining: isoYears(-5), retirement_date: isoYears(25), ...over,
 });
@@ -197,6 +198,9 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
     const p = await newUser.get('/api/profile');
     assert.equal(p.json.profile.service_years, 5);
     assert.equal(p.json.profile.pf_number, 'PF5555');
+    assert.equal(p.json.profile.father_name, 'Mohan Lal');
+    assert.equal(p.json.profile.current_address, '12 Railway Colony, New Delhi 110001');
+    assert.equal(p.json.profile.date_of_birth, isoYears(-30));
     assert.equal(p.json.user.mobile, '9876543210');
 
     const fam = await newUser.post('/api/profile/family', { name: 'Asha', relation: 'Spouse', is_dependent: true });
@@ -591,7 +595,8 @@ describe('employee self-signup', () => {
     assert.equal(me.user.profile, null);
     assert.equal(me.user.profile_complete, false);
     assert.deepEqual(me.user.missing_profile_fields, [
-      'Employee ID', 'PF number', 'Designation', 'Department', 'Station', 'Division', 'Railway zone',
+      'Employee ID', 'PF number', "Father's name", 'Date of birth', 'Current address',
+      'Designation', 'Department', 'Station', 'Division', 'Railway zone',
       'Category', 'Service type', 'Grade pay', 'Pay level', 'Date of joining', 'Retirement date',
     ]);
     for (const url of ['/api/quarters', '/api/admin/users', '/api/audit', '/api/reports', '/api/waiting-list']) {
@@ -617,7 +622,7 @@ describe('employee self-signup', () => {
     // 2. every field is required by the profile form
     const incomplete = await c.put('/api/profile', { name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', category: 'GENERAL', service_type: 'non_essential' });
     assert.equal(incomplete.status, 422);
-    for (const f of ['pf_number', 'designation', 'department', 'station', 'division', 'railway_zone', 'grade_pay', 'pay_level', 'date_of_joining', 'retirement_date']) {
+    for (const f of ['pf_number', 'father_name', 'date_of_birth', 'current_address', 'designation', 'department', 'station', 'division', 'railway_zone', 'grade_pay', 'pay_level', 'date_of_joining', 'retirement_date']) {
       assert.ok(incomplete.json.errors[f], `${f} is required`);
     }
     assert.equal((await c.get('/api/auth/me')).json.user.profile_complete, false);
@@ -666,6 +671,16 @@ describe('employee self-signup', () => {
     const future = await c.put('/api/profile', fullProfile({ ...base, date_of_joining: isoYears(1), retirement_date: isoYears(30) }));
     assert.equal(future.status, 422);
     assert.match(future.json.errors.date_of_joining[0], /future/);
+    // personal details
+    const dobFuture = await c.put('/api/profile', fullProfile({ ...base, date_of_birth: isoYears(1) }));
+    assert.equal(dobFuture.status, 422);
+    assert.match(dobFuture.json.errors.date_of_birth[0], /in the past/);
+    const joinBeforeBirth = await c.put('/api/profile', fullProfile({ ...base, date_of_birth: isoYears(-3), date_of_joining: isoYears(-5) }));
+    assert.equal(joinBeforeBirth.status, 422);
+    assert.match(joinBeforeBirth.json.errors.date_of_joining[0], /after the date of birth/);
+    assert.ok((await c.put('/api/profile', fullProfile({ ...base, father_name: '' }))).json.errors.father_name);
+    assert.ok((await c.put('/api/profile', fullProfile({ ...base, current_address: '   ' }))).json.errors.current_address);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, current_address: 'x'.repeat(501) }))).status, 422);
     assert.equal((await c.put('/api/profile', fullProfile({ ...base, grade_pay: '' }))).status, 422);
     assert.equal((await c.put('/api/profile', fullProfile({ ...base, grade_pay: -5 }))).status, 422);
     assert.equal((await c.put('/api/profile', fullProfile({ ...base, mobile: '123' }))).status, 422);

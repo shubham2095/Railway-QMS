@@ -8,14 +8,15 @@ import { CATEGORIES, SERVICE_TYPES } from '../lib/constants.js';
 import { todayIso } from '../lib/format.js';
 import { useAction, useApi } from '../lib/hooks.js';
 
-// Account details come from signup (pre-filled); the rest are the employee's service particulars.
+// Name, email and phone come from signup (pre-filled); the rest are personal and service particulars.
 // Every field is required - keep in sync with REQUIRED_PROFILE_FIELDS in backend/src/services/profile.js.
 const EMPTY = {
-  name: '', email: '', mobile: '',
+  name: '', email: '', mobile: '', father_name: '', date_of_birth: '', current_address: '',
   employee_id: '', pf_number: '', designation: '', department: '', station: '', division: '', railway_zone: '',
   category: '', service_type: '', grade_pay: '', pay_level: '', date_of_joining: '', retirement_date: '',
 };
-const SERVICE_FIELDS = Object.keys(EMPTY).filter((k) => !['name', 'email', 'mobile'].includes(k));
+// stored on the employee profile (name / email / mobile live on the login account)
+const PROFILE_FIELDS = Object.keys(EMPTY).filter((k) => !['name', 'email', 'mobile'].includes(k));
 
 function Text({ label, name, f, set, mono = false, ...rest }) {
   return (
@@ -40,7 +41,7 @@ export default function ProfileEdit() {
     if (!q.data) return;
     const { profile: p, user } = q.data;
     // signup details (name, email, phone) are pre-filled from the account; service fields from the saved profile
-    const saved = Object.fromEntries(SERVICE_FIELDS.map((k) => [k, p?.[k] ?? '']));
+    const saved = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, p?.[k] ?? '']));
     setF({ ...EMPTY, ...saved, name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '' });
   }, [q.data]);
 
@@ -68,7 +69,7 @@ export default function ProfileEdit() {
             </div>
           )}
 
-          <Card title="Account details" subtitle="Filled in from your sign-up">
+          <Card title="Personal details" subtitle="Name, email and phone are filled in from your sign-up">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Text label="Full name" name="name" f={f} set={set} maxLength={120} autoComplete="name" />
               <div>
@@ -77,6 +78,13 @@ export default function ProfileEdit() {
                 <p className="mt-1 text-[11px] text-slate-400">This is your login ID and cannot be changed here.</p>
               </div>
               <Text label="Phone number" name="mobile" f={f} set={set} type="tel" maxLength={25} autoComplete="tel" />
+              <Text label="Father's Name" name="father_name" f={f} set={set} maxLength={120} />
+              <Text label="Date of Birth" name="date_of_birth" f={f} set={set} type="date" max={todayIso()} autoComplete="bday" />
+              <div className="sm:col-span-2">
+                <label className="lbl" htmlFor="current_address">Current Address<Required /></label>
+                <textarea id="current_address" name="current_address" required rows="3" maxLength={500} className="input"
+                  placeholder="House / quarter no., street, city, state, PIN code" value={f.current_address} onChange={set('current_address')} />
+              </div>
             </div>
           </Card>
 
@@ -105,7 +113,7 @@ export default function ProfileEdit() {
               </div>
               <Text label="Grade Pay (₹)" name="grade_pay" f={f} set={set} type="number" min="0" step="1" inputMode="numeric" />
               <Text label="Pay Level" name="pay_level" f={f} set={set} maxLength={50} placeholder="e.g. Level-6" />
-              <Text label="Date of Joining" name="date_of_joining" f={f} set={set} type="date" max={todayIso()} />
+              <Text label="Date of Joining" name="date_of_joining" f={f} set={set} type="date" min={f.date_of_birth || undefined} max={todayIso()} />
               <Text label="Retirement Date" name="retirement_date" f={f} set={set} type="date" min={f.date_of_joining || undefined} />
             </div>
             <div className="mt-5 flex justify-end gap-2 border-t border-edge pt-4">

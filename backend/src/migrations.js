@@ -11,17 +11,22 @@ const columnExists = async (table, column) =>
     [table, column],
   )) > 0;
 
-const MIGRATIONS = [
-  {
-    name: 'employee_profiles.pf_number',
-    async run() {
-      if (!(await columnExists('employee_profiles', 'pf_number'))) {
-        await query('ALTER TABLE employee_profiles ADD COLUMN pf_number VARCHAR(50) NULL AFTER employee_id');
-        return true;
-      }
-      return false;
-    },
+/** "add this column to this table unless it is already there" */
+const addColumn = (table, column, definition) => ({
+  name: `${table}.${column}`,
+  async run() {
+    if (await columnExists(table, column)) return false;
+    await query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    return true;
   },
+});
+
+// Order matters: later entries may reference columns added by earlier ones (AFTER ...).
+const MIGRATIONS = [
+  addColumn('employee_profiles', 'pf_number', 'VARCHAR(50) NULL AFTER employee_id'),
+  addColumn('employee_profiles', 'father_name', 'VARCHAR(120) NULL AFTER pf_number'),
+  addColumn('employee_profiles', 'date_of_birth', 'DATE NULL AFTER father_name'),
+  addColumn('employee_profiles', 'current_address', 'VARCHAR(500) NULL AFTER date_of_birth'),
 ];
 
 /** Returns the names of the migrations that actually changed something. */

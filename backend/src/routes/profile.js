@@ -18,6 +18,9 @@ const profileSchema = z
     mobile: phoneField(),
     employee_id: reqStr('employee id', 50),
     pf_number: reqStr('PF number', 50),
+    father_name: reqStr("father's name", 120),
+    date_of_birth: reqDate('date of birth'),
+    current_address: reqStr('current address', 500),
     designation: reqStr('designation', 120),
     department: reqStr('department', 120),
     station: reqStr('station', 120),
@@ -33,6 +36,8 @@ const profileSchema = z
     date_of_joining: reqDate('date of joining'),
     retirement_date: reqDate('retirement date'),
   })
+  .refine((d) => d.date_of_birth < todayStr(), { message: 'The date of birth must be in the past.', path: ['date_of_birth'] })
+  .refine((d) => d.date_of_joining > d.date_of_birth, { message: 'The date of joining must be after the date of birth.', path: ['date_of_joining'] })
   .refine((d) => d.date_of_joining <= todayStr(), { message: 'The date of joining cannot be in the future.', path: ['date_of_joining'] })
   .refine((d) => d.retirement_date > d.date_of_joining, { message: 'The retirement date must be after the date of joining.', path: ['retirement_date'] });
 
@@ -80,6 +85,9 @@ router.put('/', async (req, res) => {
   const fields = {
     employee_id: data.employee_id,
     pf_number: data.pf_number,
+    father_name: data.father_name,
+    date_of_birth: data.date_of_birth,
+    current_address: data.current_address,
     designation: data.designation,
     department: data.department,
     station: data.station,

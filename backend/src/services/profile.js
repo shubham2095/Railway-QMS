@@ -11,6 +11,9 @@
 export const REQUIRED_PROFILE_FIELDS = {
   employee_id: 'Employee ID',
   pf_number: 'PF number',
+  father_name: "Father's name",
+  date_of_birth: 'Date of birth',
+  current_address: 'Current address',
   designation: 'Designation',
   department: 'Department',
   station: 'Station',

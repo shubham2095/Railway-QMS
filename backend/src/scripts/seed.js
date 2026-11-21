@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'node:url';
 import { first, insert, pool, query, transaction, update } from '../db.js';
-import { fmtDate } from '../utils/dates.js';
+import { fmtDate, nowStr } from '../utils/dates.js';
 import { runEngine, submitApplication } from '../services/applications.js';
 
 /** insert-or-update by a "where" object (Laravel updateOrCreate). Returns the row id. */
@@ -32,6 +32,7 @@ const PERMISSIONS = {
     'application.verify': 'Verify applications',
     'application.decide': 'Approve/reject applications',
   },
+  profile: { 'profile.verify': 'Verify employee profiles' },
   quarter: { 'quarter.manage': 'Manage quarter master data' },
   allotment: {
     'allotment.approve': 'Offer/approve allotments',
@@ -54,7 +55,7 @@ const PERMISSIONS = {
 
 const ROLE_PERMISSIONS = {
   employee: [],
-  quarter_clerk: ['application.verify', 'quarter.manage', 'allotment.approve', 'allotment.possession', 'vacation.clerk_inspection'],
+  quarter_clerk: ['profile.verify', 'application.verify', 'quarter.manage', 'allotment.approve', 'allotment.possession', 'vacation.clerk_inspection'],
   estate_officer: ['application.decide', 'allotment.approve', 'allotment.possession', 'vacation.estate_officer', 'reports.view'],
   electrical_dept: ['vacation.electrical'],
   water_dept: ['vacation.water'],
@@ -114,6 +115,8 @@ export async function seedDemo(roleIds) {
     const profileId = await upsert('employee_profiles', { employee_id: empId }, {
       user_id: userId,
       pf_number: `PF${empId.replace(/\D/g, '')}`,
+      verification_status: 'verified',
+      verified_at: nowStr(),
       father_name: 'Ram Prasad',
       date_of_birth: yearsAgo(32),
       current_address: 'Railway Colony, New Delhi - 110001',
@@ -138,6 +141,8 @@ export async function seedDemo(roleIds) {
   const profile2 = await upsert('employee_profiles', { employee_id: 'EMP1002' }, {
     user_id: user2,
     pf_number: 'PF1002',
+    verification_status: 'verified',
+    verified_at: nowStr(),
     father_name: 'Suresh Iyer',
     date_of_birth: yearsAgo(42),
     current_address: 'Railway Colony A, New Delhi - 110001',

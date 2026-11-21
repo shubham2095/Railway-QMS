@@ -21,6 +21,38 @@ const addColumn = (table, column, definition) => ({
   },
 });
 
+const indexExists = async (table, index) =>
+  (await scalar(
+    'SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
+    [table, index],
+  )) > 0;
+
+const constraintExists = async (table, name) =>
+  (await scalar(
+    'SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = ?',
+    [table, name],
+  )) > 0;
+
+/** "add this index unless it exists" */
+const addIndex = (table, name, columns) => ({
+  name: `${table}.${name}`,
+  async run() {
+    if (await indexExists(table, name)) return false;
+    await query(`ALTER TABLE ${table} ADD INDEX ${name} (${columns})`);
+    return true;
+  },
+});
+
+/** "add this foreign key unless it exists" */
+const addForeignKey = (table, name, definition) => ({
+  name: `${table}.${name}`,
+  async run() {
+    if (await constraintExists(table, name)) return false;
+    await query(`ALTER TABLE ${table} ADD CONSTRAINT ${name} ${definition}`);
+    return true;
+  },
+});
+
 /** "create this table unless it exists" (keep the DDL identical to database/schema.sql) */
 const createTable = (name, ddl) => ({
   name: `create ${name}`,
@@ -54,6 +86,13 @@ const MIGRATIONS = [
   addColumn('employee_profiles', 'date_of_birth', 'DATE NULL AFTER father_name'),
   addColumn('employee_profiles', 'current_address', 'VARCHAR(500) NULL AFTER date_of_birth'),
   createTable('application_colony_preferences', COLONY_PREFERENCES_DDL),
+  // Clerk verification of employee profiles
+  addColumn('employee_profiles', 'verification_status', "VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER has_active_allotment"),
+  addColumn('employee_profiles', 'verified_by', 'BIGINT UNSIGNED NULL AFTER verification_status'),
+  addColumn('employee_profiles', 'verified_at', 'DATETIME NULL AFTER verified_by'),
+  addColumn('employee_profiles', 'verification_remarks', 'TEXT NULL AFTER verified_at'),
+  addIndex('employee_profiles', 'employee_profiles_verification_index', 'verification_status'),
+  addForeignKey('employee_profiles', 'employee_profiles_verifier_fk', 'FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL'),
   {
     // Applications made before ranked preferences existed: their single colony becomes the first choice.
     name: 'backfill application_colony_preferences',

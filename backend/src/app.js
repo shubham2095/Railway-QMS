@@ -17,6 +17,7 @@ import authRouter from './routes/auth.js';
 import certificatesRouter from './routes/certificates.js';
 import coloniesRouter from './routes/colonies.js';
 import dashboardRouter from './routes/dashboard.js';
+import employeesRouter from './routes/employees.js';
 import documentsRouter from './routes/documents.js';
 import { audit as auditRouter, notifications as notificationsRouter, reports as reportsRouter } from './routes/misc.js';
 import profileRouter from './routes/profile.js';
@@ -78,6 +79,7 @@ export function createApp() {
   api.use(authenticate);
   api.use('/dashboard', dashboardRouter);
   api.use('/profile', profileRouter);
+  api.use('/employees', employeesRouter);
   api.use('/applications', applicationsRouter);
   api.use('/colonies', coloniesRouter);
   api.use('/documents', documentsRouter);

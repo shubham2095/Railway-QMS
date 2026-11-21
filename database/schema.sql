@@ -86,11 +86,17 @@ CREATE TABLE employee_profiles (
   date_of_joining      DATE NULL,
   retirement_date      DATE NULL,
   has_active_allotment TINYINT(1) NOT NULL DEFAULT 0,
+  verification_status  VARCHAR(30) NOT NULL DEFAULT 'pending',          -- pending | verified | changes_requested
+  verified_by          BIGINT UNSIGNED NULL,                            -- the clerk who verified / reviewed
+  verified_at          DATETIME NULL,
+  verification_remarks TEXT NULL,                                       -- what the employee must correct
   created_at           DATETIME NULL,
   updated_at           DATETIME NULL,
   UNIQUE KEY employee_profiles_employee_id_unique (employee_id),
+  KEY employee_profiles_verification_index (verification_status),
   KEY employee_profiles_station_division_index (station, division),
-  CONSTRAINT employee_profiles_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  CONSTRAINT employee_profiles_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT employee_profiles_verifier_fk FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE family_members (

@@ -35,4 +35,12 @@ export const missingProfileFields = (profile) =>
     .filter(([key]) => !profile || !filled(profile[key]))
     .map(([, label]) => label);
 
+/** SQL condition: every required field of the profile aliased `alias` is filled in (used by the clerk's queue). */
+export const completeProfileSql = (alias = 'p') =>
+  Object.keys(REQUIRED_PROFILE_FIELDS)
+    .map((k) => `(${alias}.${k} IS NOT NULL AND TRIM(CAST(${alias}.${k} AS CHAR)) <> '')`)
+    .join(' AND ');
+
+export const VERIFICATION_STATUSES = ['pending', 'verified', 'changes_requested'];
+
 export const isProfileComplete = (profile) => missingProfileFields(profile).length === 0;

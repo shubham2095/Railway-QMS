@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import { Async, Card, Dl, ErrorBanner, Icon, Pill } from '../components/ui.jsx';
+import { Async, Card, Dl, ErrorBanner, Icon, Pill, VerificationPill } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { SERVICE_TYPES, quarterTypeLabel } from '../lib/constants.js';
@@ -17,7 +17,8 @@ const BREAK_LABELS = {
 export default function ApplicationDetail() {
   const { id } = useParams();
   const q = useApi(`/applications/${id}`);
-  const { hasPermission, refresh } = useAuth();
+  const { hasPermission, hasRole, refresh } = useAuth();
+  const [rejectRemarks, setRejectRemarks] = useState('');
   const flash = useFlash();
   const act = useAction();
   const [remarks, setRemarks] = useState('');
@@ -145,10 +146,30 @@ export default function ApplicationDetail() {
             </div>
 
             <div className="space-y-6">
+              {(canVerify || canDecide || hasRole('admin', 'super_admin')) && a.profile_id && (
+                <Card title="Employee profile">
+                  <div className="flex items-center justify-between gap-2">
+                    <VerificationPill status={a.profile_verification_status} />
+                    <Link to={`/employees/${a.profile_id}`} className="btn-ghost btn-xs">Open profile</Link>
+                  </div>
+                </Card>
+              )}
               {canVerify && a.status === 'submitted' && (
-                <Card title="Clerk verification">
-                  <p className="mb-3 text-sm text-slate-500">Verify the submitted documents to run the eligibility &amp; priority engine.</p>
-                  <button className="btn-primary w-full" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/verify`), 'Verified. Eligibility & priority engine has run.')}>Verify &amp; run engine</button>
+                <Card title="Clerk check">
+                  {a.profile_verification_status !== 'verified' && (
+                    <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      Verify the employee&apos;s profile first, then check this application.{' '}
+                      <Link to={`/employees/${a.profile_id}`} className="font-semibold underline">Open profile</Link>
+                    </div>
+                  )}
+                  <p className="mb-3 text-sm text-slate-500">Check the details and documents, then proceed: the eligibility &amp; priority engine runs and the applicant joins the waiting list.</p>
+                  <button className="btn-primary w-full" disabled={act.busy || a.profile_verification_status !== 'verified'}
+                    onClick={run(() => api.post(`/applications/${id}/verify`), 'Verified. Eligibility & priority engine has run.')}>Verify &amp; proceed</button>
+                  <div className="mt-4 space-y-2 border-t border-edge pt-4">
+                    <textarea rows="2" className="input mt-0" placeholder="Reason, if you are rejecting this application (required)" value={rejectRemarks} onChange={(e) => setRejectRemarks(e.target.value)} />
+                    <button className="btn-signal w-full" disabled={act.busy || !rejectRemarks.trim()}
+                      onClick={run(() => api.post(`/applications/${id}/reject`, { remarks: rejectRemarks }), 'Application rejected.')}>Reject application</button>
+                  </div>
                 </Card>
               )}
               {canVerify && ['verified', 'eligible', 'ineligible', 'waitlisted'].includes(a.status) && (

@@ -3,7 +3,7 @@ import { config } from '../config/index.js';
 import { pool } from '../db.js';
 import { runMigrations } from '../migrations.js';
 import { applySchema, ensureDatabaseExists } from './schema.js';
-import { seedAll } from './seed.js';
+import { seedAll, seedRolesAndPermissions } from './seed.js';
 
 const fresh = process.argv.includes('--fresh');
 const noSeed = process.argv.includes('--no-seed');
@@ -24,6 +24,7 @@ try {
     console.log(`[setup] Tables already exist in "${database}" - leaving data untouched (use "npm run db:fresh" to reset).`);
     const applied = await runMigrations();
     if (applied.length) console.log(`[setup] Upgraded the schema: ${applied.join(', ')}`);
+    await seedRolesAndPermissions(); // pick up new permissions
   }
 
   // 3. Seed roles/permissions (always safe) and demo data when the DB is empty.

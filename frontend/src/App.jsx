@@ -13,6 +13,8 @@ import Applications from './pages/Applications.jsx';
 import Audit from './pages/Audit.jsx';
 import Certificates from './pages/Certificates.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import EmployeeDetail from './pages/EmployeeDetail.jsx';
+import Employees from './pages/Employees.jsx';
 import Login from './pages/Login.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Signup from './pages/Signup.jsx';
@@ -87,6 +89,8 @@ export default function App() {
         <Route path="/applications/new" element={<ApplicationForm />} />
         <Route path="/applications/:id" element={<ApplicationDetail />} />
 
+        <Route path="/employees" element={<Guard roles={STAFF}><Employees /></Guard>} />
+        <Route path="/employees/:id" element={<Guard roles={STAFF}><EmployeeDetail /></Guard>} />
         <Route path="/waiting-list" element={<Guard roles={STAFF}><WaitingList /></Guard>} />
 
         <Route path="/quarters" element={<Guard roles={STAFF}><Quarters /></Guard>} />

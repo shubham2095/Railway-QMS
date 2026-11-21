@@ -77,7 +77,7 @@ const TONES = {
 const toneOf = (s) => {
   if (['vacant', 'approved', 'accepted', 'eligible', 'sent', 'cleared', 'possession_taken', 'completed', 'active'].includes(s)) return 'emerald';
   if (['pending', 'submitted', 'verified', 'waitlisted', 'offered', 'in_clearance', 'notice', 'queued', 'vacation_pending', 'reserved', 'expiring'].includes(s)) return 'amber';
-  if (['rejected', 'ineligible', 'failed', 'overstaying', 'withdrawn', 'inactive'].includes(s)) return 'rose';
+  if (['rejected', 'ineligible', 'failed', 'overstaying', 'withdrawn', 'inactive', 'changes_requested'].includes(s)) return 'rose';
   if (['occupied', 'allotted', 'retained'].includes(s)) return 'sky';
   return 'slate';
 };
@@ -90,6 +90,10 @@ export function Pill({ status, children, className = '' }) {
     </span>
   );
 }
+
+const VERIFICATION_LABELS = { pending: 'Awaiting verification', verified: 'Verified', changes_requested: 'Changes requested' };
+/** Clerk verification state of an employee profile. */
+export const VerificationPill = ({ status }) => <Pill status={status}>{VERIFICATION_LABELS[status] ?? status}</Pill>;
 
 // ---------------------------------------------------------------- feedback
 export function Spinner({ className = 'h-5 w-5' }) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
+import ProfileStatusBanner from '../components/ProfileStatusBanner.jsx';
 import { Async, Card, ErrorBanner, Required } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
@@ -52,7 +53,7 @@ export default function ProfileEdit() {
     if (ok) {
       await refresh();
       navigate(firstTime ? '/dashboard' : '/profile', {
-        state: { flash: firstTime ? 'Profile completed. You can now apply for a quarter.' : 'Profile saved.' },
+        state: { flash: firstTime ? 'Profile completed. You can now apply for a quarter. The clerk will verify your details.' : 'Profile saved. The clerk will review your changes.' },
       });
     }
   };
@@ -62,6 +63,7 @@ export default function ProfileEdit() {
       {() => (
         <form onSubmit={submit} className="mx-auto max-w-3xl space-y-6">
           <ErrorBanner error={save.error} />
+          {!firstTime && me.profile?.verification_status === 'changes_requested' && <ProfileStatusBanner profile={me.profile} showEditLink={false} />}
           {firstTime && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <p className="font-semibold">Please complete your profile to continue.</p>

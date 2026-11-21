@@ -44,6 +44,10 @@ export async function bootstrap() {
     if (config.bootstrap.enabled) await runBootstrap();
     const applied = await runMigrations();
     if (applied.length) console.log(`[migrate] Applied: ${applied.join(', ')}`);
+    // The role -> permission matrix lives in code (seed.js); keep the database in step with it so that a
+    // new permission reaches existing installs too. (There is no screen that edits permissions by hand.)
+    const [hasUsers] = await query("SHOW TABLES LIKE 'users'");
+    if (hasUsers) await seedRolesAndPermissions();
   });
 }
 

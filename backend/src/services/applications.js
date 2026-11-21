@@ -91,6 +91,25 @@ export async function runEngine(applicationId) {
   });
 }
 
+/** The clerk's check failed: the application stops here and the employee is told why. */
+export async function rejectApplication(application, clerk, remarks) {
+  await update('quarter_applications', application.id, {
+    status: 'rejected',
+    decided_by: clerk.id,
+    decided_at: nowStr(),
+    remarks,
+  });
+  await audit('application.reject', subject('application', application.id), 'Clerk rejected the application', { remarks });
+  await notify(
+    await userOfProfile(application.employee_profile_id),
+    'application_rejected',
+    `Application ${application.reference_no} was rejected: ${remarks}`,
+    'Application Rejected',
+    ['email'],
+  );
+  return find('quarter_applications', application.id);
+}
+
 /** Estate Officer's final decision. */
 export async function decideApplication(application, officer, approved, remarks = null) {
   await update('quarter_applications', application.id, {

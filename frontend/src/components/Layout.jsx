@@ -105,6 +105,7 @@ export default function Layout() {
 
             {hasRole('quarter_clerk', 'estate_officer', 'admin', 'super_admin') && (
               <Section title="Estate Office">
+                <NavItem to="/employees" icon="users" badge={badges.profiles_to_verify ?? 0} onClick={close}>Employees</NavItem>
                 <NavItem to="/quarters" icon="building" onClick={close}>Quarter Master</NavItem>
                 <NavItem to="/waiting-list" icon="list" onClick={close}>Waiting List</NavItem>
                 <NavItem to="/retirements" icon="clock" onClick={close}>Retirement</NavItem>

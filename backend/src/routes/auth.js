@@ -8,7 +8,7 @@ import { currentContext } from '../context.js';
 import { STEP_FOR_ROLE } from '../domain.js';
 import { authenticate, clearSession, issueSession, loadAuthUser, resolveSession } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
-import { isProfileComplete, missingProfileFields } from '../services/profile.js';
+import { completeProfileSql, isProfileComplete, missingProfileFields } from '../services/profile.js';
 import { HttpError, phoneField, reqStr, validate } from '../utils/http.js';
 
 const router = Router();
@@ -48,7 +48,14 @@ const registerSchema = z
 
 /** Everything the SPA needs about the signed-in user (+ sidebar work badges). */
 export async function mePayload(user) {
-  const badges = { applications_to_verify: 0, applications_to_decide: 0, clearances_for_me: 0 };
+  const badges = { profiles_to_verify: 0, applications_to_verify: 0, applications_to_decide: 0, clearances_for_me: 0 };
+
+  if (user.hasPermission('profile.verify')) {
+    badges.profiles_to_verify = await scalar(
+      `SELECT COUNT(*) FROM employee_profiles p WHERE p.verification_status = 'pending' AND ${completeProfileSql('p')}
+          AND EXISTS (SELECT 1 FROM role_user ru JOIN roles r ON r.id = ru.role_id WHERE ru.user_id = p.user_id AND r.slug = 'employee')`,
+    );
+  }
 
   if (user.hasPermission('application.verify')) {
     badges.applications_to_verify = await scalar("SELECT COUNT(*) FROM quarter_applications WHERE status = 'submitted'");

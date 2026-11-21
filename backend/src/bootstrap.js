@@ -1,5 +1,5 @@
 import { config } from './config/index.js';
-import { query, scalar } from './db.js';
+import { pool, query, scalar } from './db.js';
 import { applySchema } from './scripts/schema.js';
 import { createSuperAdmin, seedAll, seedRolesAndPermissions } from './scripts/seed.js';
 
@@ -11,9 +11,35 @@ import { createSuperAdmin, seedAll, seedRolesAndPermissions } from './scripts/se
  *      and - only if SEED_DEMO=true - the demo accounts and sample data.
  * It never touches existing data.
  */
+const LOCK_NAME = 'rqms_bootstrap';
+
+/**
+ * Hosts such as Hostinger's LiteSpeed launcher may start several instances of the app at the same moment.
+ * A MySQL advisory lock makes sure only one of them runs the bootstrap; the others wait, then find
+ * everything already in place and carry on.
+ */
+async function withBootstrapLock(fn) {
+  const conn = await pool.getConnection();
+  try {
+    const [[row]] = await conn.query('SELECT GET_LOCK(?, 120) AS got', [LOCK_NAME]);
+    if (!row.got) throw new Error('Timed out waiting for another instance to finish the first-run setup.');
+    try {
+      return await fn();
+    } finally {
+      await conn.query('SELECT RELEASE_LOCK(?)', [LOCK_NAME]).catch(() => {});
+    }
+  } finally {
+    conn.release();
+  }
+}
+
 export async function bootstrap() {
-  const { enabled, adminEmail, adminPassword, adminName, seedDemo } = config.bootstrap;
-  if (!enabled) return;
+  if (!config.bootstrap.enabled) return;
+  await withBootstrapLock(runBootstrap);
+}
+
+async function runBootstrap() {
+  const { adminEmail, adminPassword, adminName, seedDemo } = config.bootstrap;
 
   const [hasUsersTable] = await query("SHOW TABLES LIKE 'users'");
   if (!hasUsersTable) {

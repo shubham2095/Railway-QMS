@@ -110,7 +110,7 @@ through the real eligibility + priority engine, so the waiting list is populated
 (Ravi Kumar 70 pts → rank 1, Meena Iyer 65 pts → rank 2).
 
 ### End-to-end walkthrough
-0. *(New employees)* On the login page click **Create an account** → name, email, password. The account gets the `employee` role only and you land on *Edit profile*; staff accounts (clerk, officers, departments) are created by an admin under *Users & Roles*.
+0. *(New employees)* On the login page click **Create an account** → full name, email ID, phone number, password. The account gets the `employee` role only and you are sent to the login page; after signing in, the **profile must be completed first** (the rest of the app stays locked until then). Staff accounts (clerk, admin, …) are created by an admin under *Users & Roles*.
 1. **Employee** (`emp@`) → *My Profile* → *Applications → New application* (attach documents).
 2. **Quarter Clerk** (`clerk@`) → open a *submitted* application → **Verify** (runs the eligibility + priority engine; eligible applicants join the waiting list).
 3. **Estate Officer** (`estate@`) → **Approve** the application.

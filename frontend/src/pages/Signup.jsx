@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import AuthShell, { EyeToggle, LangToggle, LockIcon, MailIcon, PhoneIcon, UserIcon, fieldBox, iconBox, inputCls, useAuthConfig, useLang } from '../components/AuthShell.jsx';
 import { useAuth } from '../lib/auth.jsx';
@@ -7,15 +7,17 @@ const T = {
   title: { en: 'Create your account', hi: 'अपना खाता बनाएँ' },
   sub: { en: 'For railway employees applying for quarters', hi: 'क्वार्टर हेतु आवेदन करने वाले रेल कर्मचारियों के लिए' },
   name: { en: 'Full name', hi: 'पूरा नाम' },
-  email: { en: 'Email', hi: 'ईमेल' },
-  mobile: { en: 'Mobile (optional)', hi: 'मोबाइल (वैकल्पिक)' },
+  email: { en: 'Email ID', hi: 'ईमेल आईडी' },
+  mobile: { en: 'Phone number', hi: 'फ़ोन नंबर' },
+  badPhone: { en: 'Enter a valid phone number (10 to 15 digits).', hi: 'सही फ़ोन नंबर दर्ज करें (10 से 15 अंक)।' },
   pw: { en: 'Password', hi: 'पासवर्ड' },
   pwHint: { en: 'At least 8 characters', hi: 'कम से कम 8 अक्षर' },
   confirm: { en: 'Confirm password', hi: 'पासवर्ड की पुष्टि करें' },
   submit: { en: 'Create account', hi: 'खाता बनाएँ' },
   have: { en: 'Already have an account?', hi: 'पहले से खाता है?' },
   login: { en: 'Sign in', hi: 'लॉगिन करें' },
-  next: { en: 'After signing up you will add your employee details (Employee ID, station, service dates) before applying for a quarter.', hi: 'खाता बनाने के बाद आप क्वार्टर हेतु आवेदन से पहले अपने कर्मचारी विवरण (कर्मचारी आईडी, स्टेशन, सेवा तिथियाँ) भरेंगे।' },
+  next: { en: 'After creating your account, sign in and complete your employee profile before applying for a quarter.', hi: 'खाता बनाने के बाद लॉगिन करें और क्वार्टर हेतु आवेदन से पहले अपनी कर्मचारी प्रोफ़ाइल पूरी करें।' },
+  created: { en: 'Account created successfully. Please sign in to continue.', hi: 'खाता सफलतापूर्वक बन गया। आगे बढ़ने के लिए लॉगिन करें।' },
   off: { en: 'Self-registration is currently switched off.', hi: 'स्वयं पंजीकरण फ़िलहाल बंद है।' },
   offHint: { en: 'Please contact the Estate Office to get an account.', hi: 'खाते के लिए कृपया संपदा कार्यालय से संपर्क करें।' },
   mismatch: { en: 'The two passwords do not match.', hi: 'दोनों पासवर्ड मेल नहीं खाते।' },
@@ -48,29 +50,27 @@ export default function Signup() {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const submitting = useRef(false); // see Login.jsx: stops the signed-in redirect racing our own navigate()
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
 
-  if (user && !submitting.current) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const submit = async (e) => {
     e.preventDefault();
     setErrors({});
     setMessage('');
-    if (f.password !== f.password_confirmation) {
-      setErrors({ password_confirmation: [t('mismatch')] });
+    const local = {};
+    if (!/^\+?[0-9]{10,15}$/.test(f.mobile.replace(/[\s\-()]/g, ''))) local.mobile = [t('badPhone')];
+    if (f.password !== f.password_confirmation) local.password_confirmation = [t('mismatch')];
+    if (Object.keys(local).length) {
+      setErrors(local);
       return;
     }
     setBusy(true);
-    submitting.current = true;
     try {
       await register(f);
-      navigate('/profile/edit', {
-        replace: true,
-        state: { flash: lang === 'hi' ? 'खाता बन गया। क्वार्टर हेतु आवेदन से पहले कृपया अपनी कर्मचारी जानकारी भरें।' : 'Account created. Please complete your employee profile to apply for a quarter.' },
-      });
+      // Signup does not sign in: send them to the login page (email pre-filled) to sign in.
+      navigate('/login', { replace: true, state: { flash: t('created'), email: f.email.trim() } });
     } catch (err) {
-      submitting.current = false;
       setErrors(err.errors || {});
       setMessage(err.errors ? '' : err.message);
       setBusy(false);
@@ -109,7 +109,7 @@ export default function Signup() {
               <input id="email" name="email" type="email" required autoComplete="email" value={f.email} onChange={set('email')} placeholder="name@example.com" className={inputCls} />
             </Field>
             <Field id="mobile" label={t('mobile')} icon={<PhoneIcon />} error={err('mobile')}>
-              <input id="mobile" name="mobile" type="tel" autoComplete="tel" maxLength={20} value={f.mobile} onChange={set('mobile')} className={inputCls} />
+              <input id="mobile" name="mobile" type="tel" required autoComplete="tel" maxLength={25} value={f.mobile} onChange={set('mobile')} placeholder="98765 43210" className={inputCls} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="password" label={t('pw')} icon={<LockIcon />} error={err('password')}>

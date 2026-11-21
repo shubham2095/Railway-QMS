@@ -12,6 +12,7 @@ import { requirePermission } from '../middleware/auth.js';
 import * as applications from '../services/applications.js';
 import { DomainError, HttpError, abortUnless, bool, idParam, optInt, optStr, reqEnum, validate } from '../utils/http.js';
 import { parseJson } from '../utils/helpers.js';
+import { isProfileComplete, missingProfileFields } from '../services/profile.js';
 import { paginate } from '../utils/paginate.js';
 
 const router = Router();
@@ -92,7 +93,10 @@ router.post('/', upload.array('documents', 10), async (req, res) => {
   const files = req.files ?? [];
   try {
     const profile = req.user.profile;
-    if (!profile) throw new HttpError(422, 'Complete your profile first.');
+    if (!isProfileComplete(profile)) {
+      const msg = `Please complete your profile first (missing: ${missingProfileFields(profile).join(', ')}).`;
+      throw new HttpError(422, msg, { profile: [msg] });
+    }
     const data = validate(createSchema, req.body);
 
     const application = await applications.submitApplication(profile, req.user, data);

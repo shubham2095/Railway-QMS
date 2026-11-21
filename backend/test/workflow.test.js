@@ -553,42 +553,73 @@ describe('employee self-signup', () => {
     assert.equal(r.json.signup, true);
   });
 
-  test('registers an employee, signs them in, and gives them nothing but the employee role', async () => {
+  test('registers an employee (no auto-login) who then signs in with the employee role only', async () => {
     const c = client();
     // try to smuggle in privileges: unknown fields must be ignored
     const superRole = (await as.admin.get('/api/admin/roles')).json.roles.find((r) => r.slug === 'super_admin');
     const res = await c.post('/api/auth/register', form({ roles: [superRole.id], role: 'super_admin', is_active: true, permissions: ['users.manage'] }));
     assert.equal(res.status, 201, res.text);
-    assert.deepEqual(res.json.user.roles, ['employee']);
-    assert.deepEqual(res.json.user.permissions, []);
-    assert.equal(res.json.user.name, 'Sita Verma');
-    assert.equal(res.json.user.profile, null);
+    assert.match(res.json.message, /Please sign in/);
+    assert.equal(res.json.user, undefined, 'registration returns no user / session');
 
-    // session cookie was issued: no separate login needed
-    assert.equal((await c.get('/api/dashboard')).status, 200);
+    // signing up does NOT sign in
+    assert.equal((await c.get('/api/dashboard')).status, 401);
+    assert.equal((await c.get('/api/auth/me')).json.user, null);
+
+    // password is stored hashed; phone stored normalised; account is active
+    const [[row]] = await pool.query("SELECT password, mobile, is_active FROM users WHERE email = 'sita@example.com'");
+    assert.notEqual(row.password, 'longenough1');
+    assert.equal(row.mobile, '9811111111');
+    assert.equal(row.is_active, 1);
+
+    // now sign in: employee role only, no permissions, profile not started
+    const me = await c.login('sita@example.com', 'longenough1');
+    assert.deepEqual(me.user.roles, ['employee']);
+    assert.deepEqual(me.user.permissions, []);
+    assert.equal(me.user.name, 'Sita Verma');
+    assert.equal(me.user.mobile, '9811111111');
+    assert.equal(me.user.profile, null);
+    assert.equal(me.user.profile_complete, false);
+    assert.deepEqual(me.user.missing_profile_fields, ['Employee ID', 'Designation', 'Category', 'Service type', 'Date of joining']);
     for (const url of ['/api/quarters', '/api/admin/users', '/api/audit', '/api/reports', '/api/waiting-list']) {
       assert.equal((await c.get(url)).status, 403, url);
     }
 
-    // password is stored hashed, and the new account can sign in normally
-    const [[row]] = await pool.query("SELECT password FROM users WHERE email = 'sita@example.com'");
-    assert.notEqual(row.password, 'longenough1');
-    await client().login('sita@example.com', 'longenough1');
-
-    // audited
     const audit = (await as.admin.get('/api/audit?action=auth.register')).json;
     assert.equal(audit.data.length, 1);
     assert.equal(audit.data[0].description, 'Employee self-registered');
   });
 
-  test('new signup can complete the profile and apply (end of the employee journey)', async () => {
+  test('profile must be completed first: cannot apply until it is, then everything unlocks', async () => {
     const c = client();
     await c.login('sita@example.com', 'longenough1');
+
+    // 1. no profile at all
+    const fd0 = new FormData();
+    fd0.append('preferred_quarter_type', 'II');
+    const blocked = await c.form('/api/applications', fd0);
+    assert.equal(blocked.status, 422);
+    assert.match(blocked.json.message, /complete your profile first/i);
+
+    // 2. required fields are enforced by the profile form
+    const incomplete = await c.put('/api/profile', { employee_id: 'EMP7777', category: 'GENERAL', service_type: 'non_essential' });
+    assert.equal(incomplete.status, 422);
+    assert.ok(incomplete.json.errors.designation && incomplete.json.errors.date_of_joining);
+    assert.equal((await c.get('/api/auth/me')).json.user.profile_complete, false);
+
+    // 3. complete it
     const joined = new Date(); joined.setFullYear(joined.getFullYear() - 4);
-    assert.equal((await c.put('/api/profile', {
+    const ok = await c.put('/api/profile', {
       employee_id: 'EMP7777', designation: 'Clerk', station: 'NDLS', category: 'GENERAL', service_type: 'non_essential',
       date_of_joining: joined.toISOString().slice(0, 10),
-    })).status, 200);
+    });
+    assert.equal(ok.status, 200, ok.text);
+    const me = (await c.get('/api/auth/me')).json.user;
+    assert.equal(me.profile_complete, true);
+    assert.deepEqual(me.missing_profile_fields, []);
+    assert.equal((await c.get('/api/profile')).json.profile_complete, true);
+
+    // 4. now applying works, and login by the new employee ID works too
     const fd = new FormData();
     fd.append('preferred_quarter_type', 'II');
     assert.equal((await c.form('/api/applications', fd)).status, 201);
@@ -613,13 +644,26 @@ describe('employee self-signup', () => {
     const long = await c.post('/api/auth/register', form({ email: 'a3@example.com', password: 'x'.repeat(73), password_confirmation: 'x'.repeat(73) }));
     assert.equal(long.status, 422);
 
+    // phone number is required and must look like a phone number
+    assert.equal((await c.post('/api/auth/register', form({ email: 'p1@example.com', mobile: '' }))).status, 422, 'phone required');
+    const noPhone = form({ email: 'p1@example.com' }); delete noPhone.mobile;
+    assert.ok((await c.post('/api/auth/register', noPhone)).json.errors.mobile, 'phone missing');
+    for (const bad of ['12345', 'abcdefghij', '98111-1111', '+1234567890123456789']) {
+      const r = await c.post('/api/auth/register', form({ email: 'p2@example.com', mobile: bad }));
+      assert.equal(r.status, 422, `rejects phone "${bad}"`);
+      assert.match(r.json.errors.mobile[0], /valid phone number/);
+    }
+    // formatting characters are accepted and stripped
+    assert.equal((await c.post('/api/auth/register', form({ email: 'p3@example.com', mobile: '+91 98765-43210' }))).status, 201);
+    assert.equal((await pool.query("SELECT mobile FROM users WHERE email = 'p3@example.com'"))[0][0].mobile, '+919876543210');
+
     const empty = await c.post('/api/auth/register', {});
     assert.equal(empty.status, 422);
-    assert.ok(empty.json.errors.name && empty.json.errors.email && empty.json.errors.password);
+    assert.ok(empty.json.errors.name && empty.json.errors.email && empty.json.errors.password && empty.json.errors.mobile);
     assert.equal((await c.post('/api/auth/register', form({ email: 'not-an-email' }))).status, 422);
 
     // none of the failed attempts created an account
-    assert.equal((await pool.query("SELECT COUNT(*) AS n FROM users WHERE email LIKE 'a_@example.com' OR email = 'not-an-email'"))[0][0].n, 0);
+    assert.equal((await pool.query("SELECT COUNT(*) AS n FROM users WHERE email LIKE 'a_@example.com' OR email IN ('not-an-email', 'p1@example.com', 'p2@example.com')"))[0][0].n, 0);
   });
 
   test('can be switched off with ALLOW_SIGNUP=false', async () => {

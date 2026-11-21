@@ -8,7 +8,8 @@ import { currentContext } from '../context.js';
 import { STEP_FOR_ROLE } from '../domain.js';
 import { authenticate, clearSession, issueSession, loadAuthUser, resolveSession } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
-import { HttpError, optStr, reqStr, validate } from '../utils/http.js';
+import { isProfileComplete, missingProfileFields } from '../services/profile.js';
+import { HttpError, reqStr, validate } from '../utils/http.js';
 
 const router = Router();
 
@@ -35,7 +36,10 @@ const registerSchema = z
   .object({
     name: reqStr('name', 120),
     email: reqStr('email').pipe(z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'The email must be a valid email address.')),
-    mobile: optStr('mobile', 20),
+    // Phone number: digits with an optional leading +, 10-15 digits; spaces, dashes and brackets are ignored.
+    mobile: reqStr('phone number', 25)
+      .transform((v) => v.replace(/[\s\-()]/g, ''))
+      .pipe(z.string().regex(/^\+?[0-9]{10,15}$/, 'Enter a valid phone number (10 to 15 digits).')),
     // bcrypt only uses the first 72 bytes, so refuse longer passwords instead of silently truncating
     password: reqStr('password', 72).pipe(z.string().min(8, 'The password must be at least 8 characters.')),
     password_confirmation: reqStr('password confirmation', 72),
@@ -73,6 +77,8 @@ export async function mePayload(user) {
       roles: user.roles,
       permissions: user.permissions,
       profile: user.profile,
+      profile_complete: isProfileComplete(user.profile),
+      missing_profile_fields: missingProfileFields(user.profile),
     },
     badges,
   };
@@ -97,7 +103,7 @@ router.post('/register', registerLimiter, async (req, res) => {
       id = await insert('users', {
         name: data.name,
         email: data.email,
-        mobile: data.mobile ?? null,
+        mobile: data.mobile,
         password: await bcrypt.hash(data.password, 10),
         is_active: 1,
       });
@@ -111,11 +117,11 @@ router.post('/register', registerLimiter, async (req, res) => {
     return id;
   });
 
-  issueSession(res, userId);
+  // No session is issued: the employee signs in afterwards, then completes the profile.
   currentContext().user = { id: userId };
   await audit('auth.register', subject('user', userId), 'Employee self-registered');
 
-  res.status(201).json(await mePayload(await loadAuthUser(userId)));
+  res.status(201).json({ message: 'Account created successfully. Please sign in.' });
 });
 
 router.post('/login', loginLimiter, async (req, res) => {

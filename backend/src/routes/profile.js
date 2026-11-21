@@ -4,13 +4,14 @@ import { find, first, insert, query, scalar, update } from '../db.js';
 import { CATEGORIES, SERVICE_TYPES } from '../domain.js';
 import { audit, subject } from '../services/audit.js';
 import { serviceYears } from '../services/eligibility.js';
-import { abortUnless, bool, HttpError, idParam, optDate, optInt, optStr, reqEnum, reqStr, validate } from '../utils/http.js';
+import { isProfileComplete, missingProfileFields } from '../services/profile.js';
+import { abortUnless, bool, HttpError, idParam, optDate, optInt, optStr, reqDate, reqEnum, reqStr, validate } from '../utils/http.js';
 
 const router = Router();
 
 const profileSchema = z.object({
   employee_id: reqStr('employee id', 50),
-  designation: optStr('designation', 120),
+  designation: reqStr('designation', 120),
   department: optStr('department', 120),
   station: optStr('station', 120),
   division: optStr('division', 120),
@@ -19,7 +20,7 @@ const profileSchema = z.object({
   service_type: reqEnum('service type', Object.keys(SERVICE_TYPES)),
   grade_pay: optInt('grade pay', { min: 0 }),
   pay_level: optStr('pay level', 50),
-  date_of_joining: optDate('date of joining'),
+  date_of_joining: reqDate('date of joining'),
   retirement_date: optDate('retirement date'),
   mobile: optStr('mobile', 20),
 });
@@ -45,6 +46,8 @@ router.get('/', async (req, res) => {
   res.json({
     user: { id: req.user.id, name: req.user.name, email: req.user.email, mobile: req.user.mobile },
     profile: shapeProfile(profile),
+    profile_complete: isProfileComplete(profile),
+    missing_profile_fields: missingProfileFields(profile),
     family_members: family,
   });
 });

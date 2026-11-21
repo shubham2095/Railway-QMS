@@ -13,10 +13,11 @@ const EMPTY = {
 };
 
 export default function ProfileEdit() {
-  useHeader('Edit Profile', 'Update your service particulars');
   const q = useApi('/profile');
   const navigate = useNavigate();
-  const { refresh } = useAuth();
+  const { refresh, user: me } = useAuth();
+  const firstTime = !me.profile_complete; // finishing the profile for the first time -> unlocks the app
+  useHeader(firstTime ? 'Complete your profile' : 'Edit Profile', firstTime ? 'Step 1 — required before you can use the system' : 'Update your service particulars');
   const save = useAction();
   const [f, setF] = useState(EMPTY);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
@@ -32,7 +33,9 @@ export default function ProfileEdit() {
     const ok = await save.run(() => api.put('/profile', f));
     if (ok) {
       await refresh();
-      navigate('/profile', { state: { flash: 'Profile saved.' } });
+      navigate(firstTime ? '/dashboard' : '/profile', {
+        state: { flash: firstTime ? 'Profile completed. You can now apply for a quarter.' : 'Profile saved.' },
+      });
     }
   };
 
@@ -41,11 +44,17 @@ export default function ProfileEdit() {
       {() => (
         <form onSubmit={submit} className="mx-auto max-w-3xl">
           <ErrorBanner error={save.error} />
+          {firstTime && (
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="font-semibold">Please complete your profile to continue.</p>
+              <p className="mt-0.5">Fields marked <span className="text-signal">*</span> are required. The rest of the system opens as soon as you save.</p>
+            </div>
+          )}
           <Card title="Employee profile" subtitle="Module 1 — fields used by the eligibility & priority engine">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div><label className="lbl">Employee ID<Required /></label><input className="input mono" required value={f.employee_id} onChange={set('employee_id')} /></div>
-              <div><label className="lbl">Mobile</label><input className="input" value={f.mobile} onChange={set('mobile')} /></div>
-              <div><label className="lbl">Designation</label><input className="input" value={f.designation} onChange={set('designation')} /></div>
+              <div><label className="lbl">Phone number</label><input className="input" value={f.mobile} onChange={set('mobile')} /></div>
+              <div><label className="lbl">Designation<Required /></label><input className="input" required value={f.designation} onChange={set('designation')} /></div>
               <div><label className="lbl">Department</label><input className="input" value={f.department} onChange={set('department')} /></div>
               <div><label className="lbl">Station</label><input className="input" value={f.station} onChange={set('station')} /></div>
               <div><label className="lbl">Division</label><input className="input" value={f.division} onChange={set('division')} /></div>
@@ -64,12 +73,12 @@ export default function ProfileEdit() {
               </div>
               <div><label className="lbl">Grade Pay</label><input type="number" min="0" className="input" value={f.grade_pay} onChange={set('grade_pay')} /></div>
               <div><label className="lbl">Pay Level</label><input className="input" value={f.pay_level} onChange={set('pay_level')} /></div>
-              <div><label className="lbl">Date of Joining</label><input type="date" className="input" value={f.date_of_joining} onChange={set('date_of_joining')} /></div>
+              <div><label className="lbl">Date of Joining<Required /></label><input type="date" className="input" required value={f.date_of_joining} onChange={set('date_of_joining')} /></div>
               <div><label className="lbl">Retirement Date</label><input type="date" className="input" value={f.retirement_date} onChange={set('retirement_date')} /></div>
             </div>
             <div className="mt-5 flex justify-end gap-2 border-t border-edge pt-4">
-              <Link to="/profile" className="btn-ghost">Cancel</Link>
-              <button className="btn-signal px-6" disabled={save.busy}>Save profile</button>
+              {!firstTime && <Link to="/profile" className="btn-ghost">Cancel</Link>}
+              <button className="btn-signal px-6" disabled={save.busy}>{firstTime ? 'Save & continue' : 'Save profile'}</button>
             </div>
           </Card>
         </form>

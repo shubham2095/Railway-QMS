@@ -34,7 +34,7 @@ export default function Login() {
   const [lang, setLang] = useLang();
   const [showPass, setShowPass] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(location.state?.email ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -88,7 +88,7 @@ export default function Login() {
           <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">{t('id')}</label>
           <div className={fieldBox}>
             <span className={iconBox}><MailIcon /></span>
-            <input id="email" name="email" type="text" autoFocus required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)}
+            <input id="email" name="email" type="text" autoFocus={!location.state?.email} required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="officer@railnet.gov.in" className={inputCls} />
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function Login() {
           <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-ink">{t('pw')}</label>
           <div className={fieldBox}>
             <span className={iconBox}><LockIcon /></span>
-            <input id="password" name="password" required autoComplete="current-password" type={showPass ? 'text' : 'password'} value={password}
+            <input id="password" name="password" required autoFocus={Boolean(location.state?.email)} autoComplete="current-password" type={showPass ? 'text' : 'password'} value={password}
               onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className={inputCls} />
             <EyeToggle shown={showPass} onClick={() => setShowPass(!showPass)} label={showPass ? 'Hide password' : 'Show password'} />
           </div>

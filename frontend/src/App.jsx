@@ -49,13 +49,17 @@ function Guard({ roles, permission, children }) {
 }
 
 function Protected() {
-  const { user, ready, signedOut } = useAuth();
+  const { user, ready, signedOut, needsProfile } = useAuth();
   const location = useLocation();
   if (!ready) return <Loading />;
   if (!user) {
     // Explicit sign-out: say so. Expired session / deep link: remember the page and return to it after login.
     const state = signedOut ? { flash: 'You have been signed out.' } : { from: location.pathname + location.search };
     return <Navigate to="/login" replace state={state} />;
+  }
+  // First login: an employee has to complete the profile before anything else.
+  if (needsProfile && location.pathname !== '/profile/edit') {
+    return <Navigate to="/profile/edit" replace />;
   }
   return <Layout />;
 }

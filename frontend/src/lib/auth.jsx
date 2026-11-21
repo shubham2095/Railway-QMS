@@ -26,11 +26,8 @@ export function AuthProvider({ children }) {
     setState({ user: d.user, badges: d.badges, ready: true });
   }, []);
 
-  // Public employee self-registration; the API signs the new account in straight away.
-  const register = useCallback(async (form) => {
-    const d = await api.post('/auth/register', form);
-    setState({ user: d.user, badges: d.badges, ready: true });
-  }, []);
+  // Public employee self-registration. It does NOT sign in: the employee logs in afterwards.
+  const register = useCallback((form) => api.post('/auth/register', form), []);
 
   const logout = useCallback(async () => {
     try { await api.post('/auth/logout'); } catch { /* already signed out */ }
@@ -40,8 +37,11 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => {
     const roles = state.user?.roles ?? [];
     const perms = state.user?.permissions ?? [];
+    // Employees (and only employees) must finish their profile before using the rest of the app.
+    const needsProfile = Boolean(state.user) && roles.length > 0 && roles.every((r) => r === 'employee') && !state.user.profile_complete;
     return {
       ...state,
+      needsProfile,
       login,
       register,
       logout,

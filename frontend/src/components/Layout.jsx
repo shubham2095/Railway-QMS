@@ -47,7 +47,7 @@ const Section = ({ title, children }) => (
 );
 
 export default function Layout() {
-  const { user, badges, hasRole, hasPermission, logout, refresh } = useAuth();
+  const { user, badges, hasRole, hasPermission, logout, refresh, needsProfile } = useAuth();
   const { flash, success, clear } = useFlash();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -87,6 +87,12 @@ export default function Layout() {
           </div>
 
           <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5 text-sm">
+            {needsProfile ? (
+              <Section title="Get started">
+                <NavItem to="/profile/edit" icon="user" onClick={close}>Complete your profile</NavItem>
+              </Section>
+            ) : (
+            <>
             <Section title="Workspace">
               <NavItem to="/dashboard" icon="grid" onClick={close}>Dashboard</NavItem>
               <NavItem to="/applications" icon="doc" badge={verifyBadge + decideBadge} onClick={close}>Applications</NavItem>
@@ -111,6 +117,8 @@ export default function Layout() {
                 {hasPermission('users.manage') && <NavItem to="/admin/users" icon="users" onClick={close}>Users &amp; Roles</NavItem>}
                 <NavItem to="/audit" icon="shield" onClick={close}>Audit Trail</NavItem>
               </Section>
+            )}
+            </>
             )}
           </nav>
         </aside>

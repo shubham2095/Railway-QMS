@@ -22,7 +22,7 @@ export default function ApplicationForm() {
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const setDoc = (i, patch) => setDocs((d) => d.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
-  if (!profile) return <Navigate to="/profile/edit" replace state={{ flash: 'Please complete your profile before applying.' }} />;
+  if (!user.profile_complete) return <Navigate to="/profile/edit" replace state={{ flash: 'Please complete your profile before applying.' }} />;
 
   const onSubmit = async (e) => {
     e.preventDefault();

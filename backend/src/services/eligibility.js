@@ -1,5 +1,6 @@
 import { config } from '../config/index.js';
 import { diffInYears } from '../utils/dates.js';
+import { isProfileComplete, missingProfileFields } from './profile.js';
 
 export const serviceYears = (profile, asOf = new Date()) =>
   profile.date_of_joining ? Math.max(0, diffInYears(profile.date_of_joining, asOf)) : 0;
@@ -35,8 +36,8 @@ export function evaluateEligibility(application, profile) {
   if (!checks.station_match) reasons.push('Requested station does not match the posting station.');
 
   // 4. Profile completeness gate.
-  checks.profile_complete = filled(profile.designation) && filled(profile.date_of_joining);
-  if (!checks.profile_complete) reasons.push('Employee profile incomplete (designation / date of joining).');
+  checks.profile_complete = isProfileComplete(profile);
+  if (!checks.profile_complete) reasons.push(`Employee profile incomplete (${missingProfileFields(profile).join(', ')}).`);
 
   return { eligible: !Object.values(checks).includes(false), reasons, checks };
 }

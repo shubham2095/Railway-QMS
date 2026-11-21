@@ -1,5 +1,6 @@
 import { first, insert, query, update } from '../db.js';
 import { nowStr } from '../utils/dates.js';
+import { preferencesFor } from './colonyPreferences.js';
 
 const stationClause = (station) => (station === null || station === undefined ? ['station IS NULL', []] : ['station = ?', [station]]);
 
@@ -61,6 +62,7 @@ export async function queue(quarterType, station = null) {
       ORDER BY w.\`rank\` ASC, w.id ASC`,
     params,
   );
+  const prefs = await preferencesFor(rows.map((r) => r.quarter_application_id));
   return rows.map((r) => ({
     id: r.id,
     rank: r.rank,
@@ -75,6 +77,7 @@ export async function queue(quarterType, station = null) {
       status: r.application_status,
       employee_name: r.employee_name,
       employee_id: r.employee_id,
+      colony_preferences: prefs.get(r.quarter_application_id) ?? [],
     },
   }));
 }

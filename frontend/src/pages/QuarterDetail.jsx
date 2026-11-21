@@ -110,6 +110,22 @@ export default function QuarterDetail() {
                           </div>
                           <Pill status="neutral">{e.application.category}</Pill>
                         </div>
+                        <div className="mt-2 text-[11px]">
+                          {e.colony_choice ? (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                              {quarter.colony_name} is their choice #{e.colony_choice}
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-500 ring-1 ring-inset ring-slate-500/20">
+                              {quarter.colony_name ?? 'This colony'} is not on their list
+                            </span>
+                          )}
+                          {e.application.colony_preferences?.length > 0 && (
+                            <p className="mt-1 text-slate-400">
+                              Wants: {e.application.colony_preferences.map((p) => `${p.priority}. ${p.colony_name}`).join('  ·  ')}
+                            </p>
+                          )}
+                        </div>
                         {canApprove && <button className="btn-primary mt-3 w-full px-3 py-1.5 text-xs" disabled={offer.busy} onClick={() => doOffer(e)}>Offer quarter</button>}
                       </div>
                     ))}

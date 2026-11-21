@@ -54,8 +54,21 @@ export default function ApplicationDetail() {
                   <Dl label="Service">{SERVICE_TYPES[a.service_type]}</Dl>
                   <Dl label="Family Size">{a.family_size}</Dl>
                   <Dl label="Medical Ground">{a.medical_ground ? 'Yes' : 'No'}</Dl>
-                  {a.preferred_colony && <Dl label="Preferred Colony">{a.preferred_colony}</Dl>}
                 </dl>
+                {a.colony_preferences?.length > 0 && (
+                  <div className="mt-4 border-t border-edge pt-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400">Preferred colonies (in order of priority)</p>
+                    <ol className="mt-2 space-y-1.5 text-sm">
+                      {a.colony_preferences.map((p) => (
+                        <li key={p.priority} className="flex items-center gap-2.5">
+                          <span className={`flex h-6 w-6 items-center justify-center rounded-full font-display text-xs font-bold ring-1 ${p.priority === 1 ? 'bg-rail text-white ring-rail' : 'bg-canvas text-rail ring-edge'}`}>{p.priority}</span>
+                          <span className="text-ink">{p.colony_name}</span>
+                          {p.priority === 1 && <span className="text-[11px] text-slate-400">1st choice</span>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
                 {a.special_grounds && (
                   <div className="mt-4 rounded-lg bg-canvas px-4 py-3 text-sm text-rail">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Special grounds</span>

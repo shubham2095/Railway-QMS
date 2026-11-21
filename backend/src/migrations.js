@@ -21,12 +21,53 @@ const addColumn = (table, column, definition) => ({
   },
 });
 
+/** "create this table unless it exists" (keep the DDL identical to database/schema.sql) */
+const createTable = (name, ddl) => ({
+  name: `create ${name}`,
+  async run() {
+    const exists = await scalar(
+      'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?',
+      [name],
+    );
+    if (exists) return false;
+    await query(ddl);
+    return true;
+  },
+});
+
+const COLONY_PREFERENCES_DDL = `CREATE TABLE application_colony_preferences (
+  id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  quarter_application_id BIGINT UNSIGNED NOT NULL,
+  priority               TINYINT UNSIGNED NOT NULL,
+  colony_name            VARCHAR(255) NOT NULL,
+  created_at             DATETIME NULL,
+  updated_at             DATETIME NULL,
+  UNIQUE KEY acp_application_priority_unique (quarter_application_id, priority),
+  KEY acp_colony_index (colony_name(100)),
+  CONSTRAINT acp_application_fk FOREIGN KEY (quarter_application_id) REFERENCES quarter_applications (id) ON DELETE CASCADE
+) ENGINE=InnoDB`;
+
 // Order matters: later entries may reference columns added by earlier ones (AFTER ...).
 const MIGRATIONS = [
   addColumn('employee_profiles', 'pf_number', 'VARCHAR(50) NULL AFTER employee_id'),
   addColumn('employee_profiles', 'father_name', 'VARCHAR(120) NULL AFTER pf_number'),
   addColumn('employee_profiles', 'date_of_birth', 'DATE NULL AFTER father_name'),
   addColumn('employee_profiles', 'current_address', 'VARCHAR(500) NULL AFTER date_of_birth'),
+  createTable('application_colony_preferences', COLONY_PREFERENCES_DDL),
+  {
+    // Applications made before ranked preferences existed: their single colony becomes the first choice.
+    name: 'backfill application_colony_preferences',
+    async run() {
+      const res = await query(
+        `INSERT INTO application_colony_preferences (quarter_application_id, priority, colony_name, created_at, updated_at)
+         SELECT a.id, 1, TRIM(a.preferred_colony), NOW(), NOW()
+           FROM quarter_applications a
+          WHERE a.preferred_colony IS NOT NULL AND TRIM(a.preferred_colony) <> ''
+            AND NOT EXISTS (SELECT 1 FROM application_colony_preferences p WHERE p.quarter_application_id = a.id)`,
+      );
+      return res.affectedRows > 0;
+    },
+  },
 ];
 
 /** Returns the names of the migrations that actually changed something. */

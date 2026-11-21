@@ -10,9 +10,10 @@ import { find, first, insert, query } from '../db.js';
 import { QUARTER_TYPES, APPLICATION_STATUSES } from '../domain.js';
 import { requirePermission } from '../middleware/auth.js';
 import * as applications from '../services/applications.js';
-import { DomainError, HttpError, abortUnless, bool, idParam, optInt, optStr, reqEnum, validate } from '../utils/http.js';
+import { DomainError, HttpError, abortUnless, bool, idParam, optInt, optStr, reqEnum, reqStr, validate } from '../utils/http.js';
 import { parseJson } from '../utils/helpers.js';
 import { isProfileComplete, missingProfileFields } from '../services/profile.js';
+import { preferencesFor } from '../services/colonyPreferences.js';
 import { paginate } from '../utils/paginate.js';
 
 const router = Router();
@@ -37,12 +38,27 @@ const upload = multer({
 
 const createSchema = z.object({
   preferred_quarter_type: reqEnum('preferred quarter type', QUARTER_TYPES),
-  preferred_colony: optStr('preferred colony'),
+  // Up to 3 colonies in order of priority. The 1st choice is required; no gaps, no repeats.
+  colony_1: reqStr('first choice colony', 255),
+  colony_2: optStr('second choice colony', 255),
+  colony_3: optStr('third choice colony', 255),
   station: optStr('station'),
   division: optStr('division'),
   family_size: optInt('family size', { min: 1, max: 30 }),
   medical_ground: bool,
   special_grounds: optStr('special grounds', 2000),
+}).superRefine((d, ctx) => {
+  const picks = [d.colony_1, d.colony_2, d.colony_3];
+  if (d.colony_3 && !d.colony_2) {
+    ctx.addIssue({ code: 'custom', path: ['colony_3'], message: 'Choose the second choice colony before the third.' });
+  }
+  const seen = new Set();
+  picks.forEach((name, i) => {
+    if (!name) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) ctx.addIssue({ code: 'custom', path: [`colony_${i + 1}`], message: `"${name}" is already chosen - each choice must be a different colony.` });
+    seen.add(key);
+  });
 });
 
 const decideSchema = z.object({
@@ -98,6 +114,7 @@ router.post('/', upload.array('documents', 10), async (req, res) => {
       throw new HttpError(422, msg, { profile: [msg] });
     }
     const data = validate(createSchema, req.body);
+    data.colonies = [data.colony_1, data.colony_2, data.colony_3].filter(Boolean);
 
     const application = await applications.submitApplication(profile, req.user, data);
 
@@ -156,6 +173,7 @@ router.get('/:id', async (req, res) => {
       employee_name: owner?.name ?? null,
       employee_id: owner?.employee_id ?? null,
       rank: entry?.rank ?? null,
+      colony_preferences: (await preferencesFor([app.id])).get(app.id) ?? [],
     },
     documents,
     allotment,

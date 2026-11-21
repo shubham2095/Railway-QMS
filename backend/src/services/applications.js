@@ -5,6 +5,7 @@ import { audit, subject } from './audit.js';
 import { notify } from './notifications.js';
 import { evaluateEligibility } from './eligibility.js';
 import { calculatePriority } from './priority.js';
+import { savePreferences } from './colonyPreferences.js';
 import * as waitingList from './waitingList.js';
 
 const userOfProfile = (profileId) =>
@@ -19,7 +20,7 @@ export async function submitApplication(profile, user, data) {
     reference_no: `APP-${compactDate()}-${randomUpper(5)}`,
     employee_profile_id: profile.id,
     preferred_quarter_type: data.preferred_quarter_type,
-    preferred_colony: data.preferred_colony ?? null,
+    preferred_colony: data.colonies?.[0] ?? null, // first choice, kept on the application for quick display
     station: data.station ?? profile.station ?? null,
     division: data.division ?? profile.division ?? null,
     service_type: profile.service_type,
@@ -30,6 +31,7 @@ export async function submitApplication(profile, user, data) {
     status: 'submitted',
     applied_at: nowStr(),
   });
+  await savePreferences(id, data.colonies ?? []);
   const application = await find('quarter_applications', id);
 
   await audit('application.submit', subject('application', id), 'Application submitted by employee');

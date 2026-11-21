@@ -131,6 +131,20 @@ describe('seeded data & priority engine', () => {
     assert.equal(second.rank, 2);
   });
 
+  test('colony preferences: shown on the waiting list and matched against the quarter being offered', async () => {
+    // Ravi chose [Colony A, Colony B]; Meena chose [Colony B, Colony A]
+    const wl = (await as.clerk.get('/api/waiting-list')).json.entries;
+    const prefs = (name) => wl.find((e) => e.application.employee_name === name).application.colony_preferences;
+    assert.deepEqual(prefs('Ravi Kumar'), [{ priority: 1, colony_name: 'Railway Colony A' }, { priority: 2, colony_name: 'Railway Colony B' }]);
+    assert.deepEqual(prefs('Meena Iyer').map((p) => p.colony_name), ['Railway Colony B', 'Railway Colony A']);
+
+    const q101 = (await as.clerk.get('/api/quarters?q=Q-101')).json.data[0];   // a Type-III quarter in Colony A
+    const sugg = (await as.clerk.get(`/api/quarters/${q101.id}`)).json.suggestions;
+    assert.equal(sugg.find((e) => e.application.employee_name === 'Ravi Kumar').colony_choice, 1, "Colony A is Ravi's 1st choice");
+    assert.equal(sugg.find((e) => e.application.employee_name === 'Meena Iyer').colony_choice, 2, "Colony A is Meena's 2nd choice");
+    assert.equal(sugg[0].application.employee_name, 'Ravi Kumar', 'ranking is still by priority score, preferences are shown alongside');
+  });
+
   test('application detail exposes eligibility checks and breakdown', async () => {
     const list = await as.employee.get('/api/applications');
     assert.equal(list.json.data.length, 1);
@@ -214,7 +228,7 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
   let appId;
   test('submit a Type-VI application with documents, clerk verifies -> ineligible (needs 18y)', async () => {
     const fd = new FormData();
-    fd.append('preferred_quarter_type', 'VI');
+    fd.append('preferred_quarter_type', 'VI'); fd.append('colony_1', 'Railway Colony A');
     fd.append('family_size', '3');
     fd.append('medical_ground', 'true');
     fd.append('document_categories', 'service_certificate');
@@ -225,7 +239,7 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
 
     // disallowed file type is rejected
     const bad = new FormData();
-    bad.append('preferred_quarter_type', 'III');
+    bad.append('preferred_quarter_type', 'III'); bad.append('colony_1', 'Railway Colony A');
     bad.append('documents', new Blob(['MZ'], { type: 'application/x-msdownload' }), 'virus.exe');
     assert.equal((await newUser.form('/api/applications', bad)).status, 422);
 
@@ -442,7 +456,7 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     const nu = client();
     await nu.login('new@rqms.test', 'secret123');
     const fd = new FormData();
-    fd.append('preferred_quarter_type', 'III');
+    fd.append('preferred_quarter_type', 'III'); fd.append('colony_1', 'Railway Colony A');
     const app = await nu.form('/api/applications', fd);
     assert.equal(app.status, 201, app.text);
     assert.equal((await as.clerk.post(`/api/applications/${app.json.id}/verify`)).status, 200);
@@ -614,7 +628,7 @@ describe('employee self-signup', () => {
 
     // 1. no profile at all
     const fd0 = new FormData();
-    fd0.append('preferred_quarter_type', 'II');
+    fd0.append('preferred_quarter_type', 'II'); fd0.append('colony_1', 'Railway Colony A');
     const blocked = await c.form('/api/applications', fd0);
     assert.equal(blocked.status, 422);
     assert.match(blocked.json.message, /complete your profile first/i);
@@ -637,7 +651,7 @@ describe('employee self-signup', () => {
 
     // 4. now applying works, and login by the new employee ID works too
     const fd = new FormData();
-    fd.append('preferred_quarter_type', 'II');
+    fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony A');
     assert.equal((await c.form('/api/applications', fd)).status, 201);
     assert.equal((await client().post('/api/auth/login', { email: 'EMP7777', password: 'longenough1' })).status, 200, 'employee-id login works too');
   });
@@ -692,13 +706,75 @@ describe('employee self-signup', () => {
     let me = (await c.get('/api/auth/me')).json.user;
     assert.equal(me.profile_complete, false);
     assert.deepEqual(me.missing_profile_fields, ['PF number']);
-    const fd = new FormData(); fd.append('preferred_quarter_type', 'II');
+    const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony A');
     const blocked = await c.form('/api/applications', fd);
     assert.equal(blocked.status, 422);
     assert.match(blocked.json.message, /PF number/);
     await c.put('/api/profile', fullProfile({ ...base }));
     me = (await c.get('/api/auth/me')).json.user;
     assert.equal(me.profile_complete, true);
+  });
+
+  test('colony list for the application form', async () => {
+    assert.equal((await client().get('/api/colonies')).status, 401);
+    const c = client();
+    await c.login('sita@example.com', 'longenough1');
+    const all = (await c.get('/api/colonies')).json.data;
+    // (Colony Z was added to the inventory by the quarter-master test above)
+    assert.deepEqual(all.map((x) => x.colony_name), ['Colony Z', 'Officers Enclave', 'Railway Colony A', 'Railway Colony B', 'Railway Colony C']);
+    const typeIII = (await c.get('/api/colonies?type=III&station=NDLS')).json.data;
+    assert.equal(typeIII.length, 1);
+    assert.deepEqual(typeIII[0], { colony_name: 'Railway Colony A', quarters: 2, vacant: typeIII[0].vacant });
+    const typeIV = (await c.get('/api/colonies?type=IV')).json.data;
+    assert.deepEqual(typeIV.map((x) => [x.colony_name, x.quarters]), [['Colony Z', 1], ['Railway Colony B', 2]]);
+    assert.equal((await c.get('/api/colonies?type=VI')).json.data.length, 0);
+    assert.equal((await c.get('/api/colonies?station=NOWHERE')).json.data.length, 0);
+    // names and counts only - nothing about occupants
+    assert.deepEqual(Object.keys(all[0]).sort(), ['colony_name', 'quarters', 'vacant']);
+  });
+
+  test('applying with up to 3 colonies in priority order', async () => {
+    const c = client();
+    await c.login('sita@example.com', 'longenough1');
+    const apply = (fields) => {
+      const fd = new FormData(); fd.append('preferred_quarter_type', 'III');
+      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+      return c.form('/api/applications', fd);
+    };
+
+    const ok = await apply({ colony_1: 'Saket', colony_2: '  Hauz Khas  ', colony_3: 'Connaught Place' });
+    assert.equal(ok.status, 201, ok.text);
+    const d = (await c.get(`/api/applications/${ok.json.id}`)).json.application;
+    assert.deepEqual(d.colony_preferences, [
+      { priority: 1, colony_name: 'Saket' }, { priority: 2, colony_name: 'Hauz Khas' }, { priority: 3, colony_name: 'Connaught Place' },
+    ]);
+    assert.equal(d.preferred_colony, 'Saket', 'first choice is kept on the application itself');
+
+    // one choice is enough; two is fine
+    assert.equal((await apply({ colony_1: 'Railway Colony A' })).status, 201);
+    const two = await apply({ colony_1: 'Railway Colony B', colony_2: 'Railway Colony A' });
+    assert.equal((await c.get(`/api/applications/${two.json.id}`)).json.application.colony_preferences.length, 2);
+
+    // rules: first choice required, no gaps, no repeats (case-insensitive), length limit
+    const none = await apply({});
+    assert.equal(none.status, 422);
+    assert.ok(none.json.errors.colony_1);
+    const gap = await apply({ colony_1: 'Saket', colony_3: 'Hauz Khas' });
+    assert.equal(gap.status, 422);
+    assert.match(gap.json.errors.colony_3[0], /second choice/i);
+    const dup = await apply({ colony_1: 'Saket', colony_2: 'SAKET' });
+    assert.equal(dup.status, 422);
+    assert.match(dup.json.errors.colony_2[0], /different colony/);
+    assert.equal((await apply({ colony_1: 'x'.repeat(256) })).status, 422);
+
+    // another employee cannot read these preferences
+    const other = client(); await other.login('emp2@rqms.test');
+    assert.equal((await other.get(`/api/applications/${ok.json.id}`)).status, 403);
+
+    // after verification the applicant joins the queue with the choices visible to staff
+    assert.equal((await as.clerk.post(`/api/applications/${ok.json.id}/verify`)).status, 200);
+    const entry = (await as.clerk.get('/api/waiting-list?type=III&station=NDLS')).json.entries.find((e) => e.application.id === ok.json.id);
+    assert.deepEqual(entry.application.colony_preferences.map((p) => p.colony_name), ['Saket', 'Hauz Khas', 'Connaught Place']);
   });
 
   test('validation: duplicate email, weak / mismatched password, missing fields', async () => {

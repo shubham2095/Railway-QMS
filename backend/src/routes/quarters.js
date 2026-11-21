@@ -5,6 +5,7 @@ import { QUARTER_STATUSES, QUARTER_TYPES } from '../domain.js';
 import { requirePermission, requireRole } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
 import { suggestionsFor } from '../services/allotments.js';
+import { choiceFor } from '../services/colonyPreferences.js';
 import { DomainError, HttpError, idParam, optStr, reqEnum, reqStr, validate } from '../utils/http.js';
 import { like, paginate } from '../utils/paginate.js';
 
@@ -99,7 +100,11 @@ router.get('/:id', staff, async (req, res) => {
   );
 
   // Module 6 - top of the matching waiting-list queue when vacant.
-  const suggestions = await suggestionsFor(quarter);
+  // For each applicant: which of their (up to 3) colony choices is this quarter's colony, if any.
+  const suggestions = (await suggestionsFor(quarter)).map((e) => ({
+    ...e,
+    colony_choice: choiceFor(e.application.colony_preferences, quarter.colony_name),
+  }));
 
   res.json({
     quarter: { ...quarter, occupant_name: occupant?.name ?? null },

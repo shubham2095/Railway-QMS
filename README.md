@@ -111,8 +111,8 @@ through the real eligibility + priority engine, so the waiting list is populated
 
 ### End-to-end walkthrough
 0. *(New employees)* On the login page click **Create an account** → full name, email ID, phone number, password. The account gets the `employee` role only and you are sent to the login page; after signing in, the **profile must be completed first** (the rest of the app stays locked until then). Name, email ID and phone number from signup are pre-filled; the employee adds father's name, date of birth, current address, Employee ID, **PF number**, designation, department, station, division, railway zone, category, service type, grade pay, pay level, date of joining and retirement date (all required; the single list lives in `backend/src/services/profile.js`). Staff accounts (clerk, admin, …) are created by an admin under *Users & Roles*.
-1. **Employee** (`emp@`) → *My Profile* → *Applications → New application* (attach documents).
-2. **Quarter Clerk** (`clerk@`) → open a *submitted* application → **Verify** (runs the eligibility + priority engine; eligible applicants join the waiting list).
+1. **Employee** (`emp@`) → *My Profile* → *Applications → New application*: pick the quarter type and up to **3 preferred colonies in order of priority** (1st choice required; colonies from the quarter inventory are offered as one-click chips, any area name can also be typed), then attach documents.
+2. **Quarter Clerk** (`clerk@`) → open a *submitted* application → **Verify** (runs the eligibility + priority engine; eligible applicants join the waiting list). The waiting list and each vacant quarter's offer screen show every applicant's colony choices ("Colony A is their choice #1"); the queue itself is still ranked by priority score.
 3. **Estate Officer** (`estate@`) → **Approve** the application.
 4. **Clerk / Estate Officer** → *Quarter Master* → open a vacant quarter → the matching queue is suggested → **Offer quarter**.
 5. **Employee** → *Allotments* → **Accept** the offer.
@@ -150,6 +150,7 @@ All routes are under `/api` and require the session cookie unless noted. Errors 
 |---|---|
 | Auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` *(public, returns `user: null` when signed out)* · `POST /auth/register` *(public employee self-signup)* · `GET /auth/config` |
 | Profile (M1) | `GET/PUT /profile` · `POST /profile/family` · `DELETE /profile/family/:id` |
+| Colonies | `GET /colonies?type=&station=` *(colony names + counts from the quarter master, for the application form)* |
 | Applications (M3-4) | `GET/POST /applications` · `GET /applications/:id` · `POST /applications/:id/verify` · `/run-engine` · `/decide` · `GET /documents/:id` |
 | Waiting list (M5) | `GET /waiting-list?type=&station=` |
 | Quarter master (M2) | `GET/POST /quarters` · `GET/PUT /quarters/:id` |

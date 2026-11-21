@@ -181,11 +181,11 @@ export async function seedDemo(roleIds) {
     if (existing.c > 0) return;
     const user = await first('SELECT id, name, email, mobile FROM users WHERE id = ?', [userId]);
     const profile = await first('SELECT * FROM employee_profiles WHERE id = ?', [profileId]);
-    const app = await submitApplication(profile, user, { preferred_quarter_type: 'III', preferred_colony: 'Railway Colony A', ...data });
+    const app = await submitApplication(profile, user, { preferred_quarter_type: 'III', ...data });
     await runEngine(app.id);
   };
-  await applyFor(employee.userId, employee.profileId, { family_size: 4, medical_ground: false });
-  await applyFor(user2, profile2, { family_size: 3, medical_ground: true });
+  await applyFor(employee.userId, employee.profileId, { family_size: 4, medical_ground: false, colonies: ['Railway Colony A', 'Railway Colony B'] });
+  await applyFor(user2, profile2, { family_size: 3, medical_ground: true, colonies: ['Railway Colony B', 'Railway Colony A'] });
 }
 
 /** Create (or reset the password of) a super_admin account - used for the first login on a real deployment. */

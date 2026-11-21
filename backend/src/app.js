@@ -15,6 +15,7 @@ import allotmentsRouter from './routes/allotments.js';
 import applicationsRouter from './routes/applications.js';
 import authRouter from './routes/auth.js';
 import certificatesRouter from './routes/certificates.js';
+import coloniesRouter from './routes/colonies.js';
 import dashboardRouter from './routes/dashboard.js';
 import documentsRouter from './routes/documents.js';
 import { audit as auditRouter, notifications as notificationsRouter, reports as reportsRouter } from './routes/misc.js';
@@ -78,6 +79,7 @@ export function createApp() {
   api.use('/dashboard', dashboardRouter);
   api.use('/profile', profileRouter);
   api.use('/applications', applicationsRouter);
+  api.use('/colonies', coloniesRouter);
   api.use('/documents', documentsRouter);
   api.use('/waiting-list', waitingListRouter);
   api.use('/quarters', quartersRouter);

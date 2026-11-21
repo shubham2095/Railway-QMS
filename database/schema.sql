@@ -9,7 +9,7 @@
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS audit_logs, notification_logs, certificates, documents,
+DROP TABLE IF EXISTS audit_logs, notification_logs, certificates, documents, application_colony_preferences,
     retirement_records, vacation_clearances, vacation_requests, occupancies,
     allotments, waiting_list_entries, quarter_applications, quarters,
     family_members, employee_profiles, permission_role, role_user,
@@ -157,6 +157,19 @@ CREATE TABLE quarter_applications (
   CONSTRAINT qa_profile_fk  FOREIGN KEY (employee_profile_id) REFERENCES employee_profiles (id) ON DELETE CASCADE,
   CONSTRAINT qa_verified_fk FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT qa_decided_fk  FOREIGN KEY (decided_by)  REFERENCES users (id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- ------------------------------ Module 3: ranked colony preferences (up to 3 per application)
+CREATE TABLE application_colony_preferences (
+  id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  quarter_application_id BIGINT UNSIGNED NOT NULL,
+  priority               TINYINT UNSIGNED NOT NULL,      -- 1 = first choice, 2 = second, 3 = third
+  colony_name            VARCHAR(255) NOT NULL,
+  created_at             DATETIME NULL,
+  updated_at             DATETIME NULL,
+  UNIQUE KEY acp_application_priority_unique (quarter_application_id, priority),
+  KEY acp_colony_index (colony_name(100)),
+  CONSTRAINT acp_application_fk FOREIGN KEY (quarter_application_id) REFERENCES quarter_applications (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ----------------------------------------------------- Module 5: waiting list

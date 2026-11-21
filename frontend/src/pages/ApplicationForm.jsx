@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
+import ColonyPreferences, { colonyProblem } from '../components/ColonyPreferences.jsx';
 import { Card, ErrorBanner, Required } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
@@ -15,9 +16,11 @@ export default function ApplicationForm() {
   const profile = user.profile;
 
   const [f, setF] = useState({
-    preferred_quarter_type: 'I', preferred_colony: '', station: profile?.station ?? '', division: profile?.division ?? '',
+    preferred_quarter_type: 'I', station: profile?.station ?? '', division: profile?.division ?? '',
     family_size: 1, medical_ground: false, special_grounds: '',
   });
+  const [colonies, setColonies] = useState(['', '', '']); // up to 3, in order of priority
+  const [localError, setLocalError] = useState('');
   const [docs, setDocs] = useState([{ category: 'service_certificate', file: null }]);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const setDoc = (i, patch) => setDocs((d) => d.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -26,8 +29,16 @@ export default function ApplicationForm() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    const problem = colonyProblem(colonies);
+    if (problem) {
+      setLocalError(problem);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setLocalError('');
     const fd = new FormData();
     Object.entries(f).forEach(([k, v]) => fd.append(k, typeof v === 'boolean' ? String(v) : v));
+    colonies.forEach((c, i) => c.trim() && fd.append(`colony_${i + 1}`, c.trim()));
     docs.filter((d) => d.file).forEach((d) => {
       fd.append('document_categories', d.category);
       fd.append('documents', d.file);
@@ -38,7 +49,7 @@ export default function ApplicationForm() {
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-3xl space-y-6">
-      <ErrorBanner error={submit.error} />
+      <ErrorBanner error={submit.error ?? (localError ? { message: localError } : null)} />
       <Card title="Application details">
         <div className="mb-4 rounded-lg bg-canvas px-4 py-3 text-xs text-rail">
           Applying as <span className="font-semibold">{user.name}</span> (<span className="mono">{profile.employee_id}</span>) ·{' '}
@@ -51,7 +62,6 @@ export default function ApplicationForm() {
               {QUARTER_TYPES.map((t) => <option key={t} value={t}>{quarterTypeLabel(t)}</option>)}
             </select>
           </div>
-          <div><label className="lbl">Preferred Colony</label><input className="input" value={f.preferred_colony} onChange={set('preferred_colony')} /></div>
           <div><label className="lbl">Station</label><input className="input" value={f.station} onChange={set('station')} /></div>
           <div><label className="lbl">Division</label><input className="input" value={f.division} onChange={set('division')} /></div>
           <div><label className="lbl">Family Size</label><input type="number" min="1" max="30" className="input" value={f.family_size} onChange={set('family_size')} /></div>
@@ -60,6 +70,7 @@ export default function ApplicationForm() {
               <input type="checkbox" checked={f.medical_ground} onChange={set('medical_ground')} className="rounded border-edge text-rail focus:ring-rail" /> Applying on medical grounds
             </label>
           </div>
+          <ColonyPreferences value={colonies} onChange={setColonies} quarterType={f.preferred_quarter_type} station={f.station} />
           <div className="sm:col-span-2"><label className="lbl">Special Grounds / Remarks</label><textarea rows="3" className="input" value={f.special_grounds} onChange={set('special_grounds')} /></div>
         </div>
       </Card>
@@ -72,7 +83,7 @@ export default function ApplicationForm() {
                 {Object.entries(DOC_CATEGORIES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
               <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setDoc(i, { file: e.target.files[0] ?? null })}
-                className="flex-1 text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-rail file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-ink" />
+                className="w-full min-w-0 text-sm text-slate-600 sm:w-auto sm:flex-1 file:mr-3 file:rounded-md file:border-0 file:bg-rail file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-ink" />
               {docs.length > 1 && <button type="button" onClick={() => setDocs((x) => x.filter((_, j) => j !== i))} className="text-xs font-medium text-signal hover:underline">Remove</button>}
             </div>
           ))}

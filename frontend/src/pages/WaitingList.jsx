@@ -41,7 +41,7 @@ export default function WaitingList() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-edge text-left text-[11px] uppercase tracking-wide text-slate-400">
-                      <th className="th">Rank</th><th className="th">Employee</th><th className="th">Category</th><th className="th">Priority</th><th className="th">Waiting Since</th><th className="th">Application</th>
+                      <th className="th">Rank</th><th className="th">Employee</th><th className="th">Category</th><th className="th">Priority</th><th className="th">Colony preference</th><th className="th">Waiting Since</th><th className="th">Application</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -54,6 +54,15 @@ export default function WaitingList() {
                         </td>
                         <td className="td text-slate-600">{e.application.category ?? '—'}</td>
                         <td className="td font-semibold text-ink">{e.priority_score} <span className="font-normal text-slate-400">pts</span></td>
+                        <td className="td">
+                          {e.application.colony_preferences?.length ? (
+                            <ol className="space-y-0.5 text-xs text-slate-600">
+                              {e.application.colony_preferences.map((p) => (
+                                <li key={p.priority}><span className="mr-1 font-semibold text-rail">{p.priority}.</span>{p.colony_name}</li>
+                              ))}
+                            </ol>
+                          ) : <span className="text-slate-300">—</span>}
+                        </td>
                         <td className="td text-slate-600">{fmtDate(e.waiting_since)}</td>
                         <td className="td"><Link to={`/applications/${e.application.id}`} className="mono text-xs text-rail hover:underline">{e.application.reference_no}</Link></td>
                       </tr>

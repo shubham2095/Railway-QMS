@@ -8,8 +8,8 @@
   "main": "server.js",
   "scripts": {
     "install:all": "npm --prefix backend install && npm --prefix frontend install --include=dev",
-    "db:setup": "npm --prefix backend run db:setup",
-    "db:fresh": "npm --prefix backend run db:fresh",
+    "db:setup": "npm --prefix backend run db:setup --",
+    "db:fresh": "npm --prefix backend run db:fresh --",
     "db:admin": "npm --prefix backend run db:admin --",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",

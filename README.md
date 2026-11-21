@@ -20,7 +20,7 @@ document uploads, certificate / NOC generation and an MIS dashboard.
 |---|---|
 | Database | MySQL / MariaDB (the one bundled with **XAMPP**) |
 | API | Node.js 20.19+ / 22 · Express 5 · `mysql2` · `zod` validation · `multer` uploads |
-| Auth | Email **or** Employee-ID login · bcrypt · JWT in an `httpOnly` cookie (sliding 120 min) |
+| Auth | Email **or** Employee-ID login · employee self-signup · bcrypt · JWT in an `httpOnly` cookie (sliding 120 min) |
 | UI | React 18 · React Router 7 · Tailwind CSS 3 · Vite (same look & feel as the Blade version) |
 
 ```
@@ -110,6 +110,7 @@ through the real eligibility + priority engine, so the waiting list is populated
 (Ravi Kumar 70 pts → rank 1, Meena Iyer 65 pts → rank 2).
 
 ### End-to-end walkthrough
+0. *(New employees)* On the login page click **Create an account** → name, email, password. The account gets the `employee` role only and you land on *Edit profile*; staff accounts (clerk, officers, departments) are created by an admin under *Users & Roles*.
 1. **Employee** (`emp@`) → *My Profile* → *Applications → New application* (attach documents).
 2. **Quarter Clerk** (`clerk@`) → open a *submitted* application → **Verify** (runs the eligibility + priority engine; eligible applicants join the waiting list).
 3. **Estate Officer** (`estate@`) → **Approve** the application.
@@ -134,6 +135,7 @@ through the real eligibility + priority engine, so the waiting list is populated
 | `STORAGE_DIR` | `backend/storage` | Where uploads and generated certificates are kept |
 | `SESSION_LIFETIME` | `120` | Idle session lifetime in minutes |
 | `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS |
+| `ALLOW_SIGNUP` | `true` | Public employee self-registration on the login page; set `false` to switch it off |
 | `APP_TIMEZONE` | `Asia/Kolkata` | Timezone used for all stored timestamps |
 | `RQMS_W_*`, `RQMS_RETENTION_DAYS`, `RQMS_OVERSTAY_PENALTY`, … | see `.env.example` | Tunable priority weights & retention rules (Laravel's `config/rqms.php`) |
 
@@ -146,7 +148,7 @@ All routes are under `/api` and require the session cookie unless noted. Errors 
 
 | Module | Endpoints |
 |---|---|
-| Auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` *(public, returns `user: null` when signed out)* |
+| Auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` *(public, returns `user: null` when signed out)* · `POST /auth/register` *(public employee self-signup)* · `GET /auth/config` |
 | Profile (M1) | `GET/PUT /profile` · `POST /profile/family` · `DELETE /profile/family/:id` |
 | Applications (M3-4) | `GET/POST /applications` · `GET /applications/:id` · `POST /applications/:id/verify` · `/run-engine` · `/decide` · `GET /documents/:id` |
 | Waiting list (M5) | `GET /waiting-list?type=&station=` |

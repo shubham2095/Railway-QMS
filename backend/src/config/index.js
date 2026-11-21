@@ -71,6 +71,8 @@ export const config = {
     cookieName: 'rqms_token',
     sessionMinutes: num('SESSION_LIFETIME', 120),
     cookieSecure: process.env.COOKIE_SECURE === 'true',
+    // Public employee self-registration (POST /api/auth/register). Set ALLOW_SIGNUP=false to switch it off.
+    allowSignup: process.env.ALLOW_SIGNUP !== 'false',
   },
 
   // ---------------------------------------------------------------------------

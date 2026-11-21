@@ -54,6 +54,7 @@ In the same wizard (or later under the app's **Environment variables**; changes 
 | `ADMIN_EMAIL` | the email you will log in with |
 | `ADMIN_PASSWORD` | a strong password (min 8 chars) |
 | `ADMIN_NAME` | e.g. `Site Owner` |
+| `ALLOW_SIGNUP` | *(optional)* `true` by default: anyone can create an **employee** account from the login page. Set `false` to allow only accounts created by an admin |
 | `STORAGE_DIR` | *(recommended)* a folder **outside** the app folder, e.g. `/home/u123456789/rqms-storage`, so uploaded documents and certificates survive redeploys |
 
 Notes
@@ -87,6 +88,12 @@ Hostinger deploys a new Node.js app to a temporary URL first; then connect your 
 Updates: push to `main` → Hostinger rebuilds automatically (if auto-deploy is on).
 
 ---
+
+## About public signup
+The login page has a **Create an account** link (employees only). A self-registered account can only ever get the `employee` role – staff roles
+are assigned by an admin under **Users & Roles**. It does not verify the email address (the app sends no email yet), so on a public site
+keep an eye on **Users & Roles** and deactivate unwanted accounts, or set `ALLOW_SIGNUP=false` and create employees yourself.
+Sign-ups are limited to 10 per hour per IP address.
 
 ## Demo mode (optional, showcase only)
 Want the demo accounts (`clerk@rqms.test`, … password `password`) on this subdomain for a presentation?

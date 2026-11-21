@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import { useFlash } from '../lib/flash.jsx';
 import { Icon } from './ui.jsx';
@@ -50,7 +50,6 @@ export default function Layout() {
   const { user, badges, hasRole, hasPermission, logout, refresh } = useAuth();
   const { flash, success, clear } = useFlash();
   const location = useLocation();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [header, setHeader] = useState({ title: '', subtitle: '' });
@@ -148,7 +147,7 @@ export default function Layout() {
                       <Link to="/profile" className="block px-4 py-2 text-sm text-rail hover:bg-canvas">My Profile</Link>
                       <button
                         className="block w-full px-4 py-2 text-left text-sm text-signal hover:bg-canvas"
-                        onClick={async () => { await logout(); navigate('/login', { state: { flash: 'You have been signed out.' } }); }}
+                        onClick={logout}
                       >
                         Sign out
                       </button>

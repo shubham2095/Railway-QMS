@@ -15,6 +15,7 @@ const { ensureDatabaseExists, applySchema } = await import('../src/scripts/schem
 await ensureDatabaseExists();
 await applySchema();
 
+const { config } = await import('../src/config/index.js');
 const { createApp } = await import('../src/app.js');
 const { seedAll } = await import('../src/scripts/seed.js');
 const { pool } = await import('../src/db.js');
@@ -536,5 +537,101 @@ describe('retirement, reports, audit, notifications', () => {
     const attempt = await client().post('/api/auth/login', { email: 'water@rqms.test', password: 'password' });
     assert.equal(attempt.status, 422);
     assert.match(attempt.json.errors.email[0], /inactive/);
+  });
+});
+
+describe('employee self-signup', () => {
+  const form = (over = {}) => ({
+    name: 'Sita Verma', email: 'sita@example.com', mobile: '9811111111',
+    password: 'longenough1', password_confirmation: 'longenough1', ...over,
+  });
+
+  test('public config advertises signup', async () => {
+    const c = client();
+    const r = await c.get('/api/auth/config');
+    assert.equal(r.status, 200);
+    assert.equal(r.json.signup, true);
+  });
+
+  test('registers an employee, signs them in, and gives them nothing but the employee role', async () => {
+    const c = client();
+    // try to smuggle in privileges: unknown fields must be ignored
+    const superRole = (await as.admin.get('/api/admin/roles')).json.roles.find((r) => r.slug === 'super_admin');
+    const res = await c.post('/api/auth/register', form({ roles: [superRole.id], role: 'super_admin', is_active: true, permissions: ['users.manage'] }));
+    assert.equal(res.status, 201, res.text);
+    assert.deepEqual(res.json.user.roles, ['employee']);
+    assert.deepEqual(res.json.user.permissions, []);
+    assert.equal(res.json.user.name, 'Sita Verma');
+    assert.equal(res.json.user.profile, null);
+
+    // session cookie was issued: no separate login needed
+    assert.equal((await c.get('/api/dashboard')).status, 200);
+    for (const url of ['/api/quarters', '/api/admin/users', '/api/audit', '/api/reports', '/api/waiting-list']) {
+      assert.equal((await c.get(url)).status, 403, url);
+    }
+
+    // password is stored hashed, and the new account can sign in normally
+    const [[row]] = await pool.query("SELECT password FROM users WHERE email = 'sita@example.com'");
+    assert.notEqual(row.password, 'longenough1');
+    await client().login('sita@example.com', 'longenough1');
+
+    // audited
+    const audit = (await as.admin.get('/api/audit?action=auth.register')).json;
+    assert.equal(audit.data.length, 1);
+    assert.equal(audit.data[0].description, 'Employee self-registered');
+  });
+
+  test('new signup can complete the profile and apply (end of the employee journey)', async () => {
+    const c = client();
+    await c.login('sita@example.com', 'longenough1');
+    const joined = new Date(); joined.setFullYear(joined.getFullYear() - 4);
+    assert.equal((await c.put('/api/profile', {
+      employee_id: 'EMP7777', designation: 'Clerk', station: 'NDLS', category: 'GENERAL', service_type: 'non_essential',
+      date_of_joining: joined.toISOString().slice(0, 10),
+    })).status, 200);
+    const fd = new FormData();
+    fd.append('preferred_quarter_type', 'II');
+    assert.equal((await c.form('/api/applications', fd)).status, 201);
+    assert.equal((await client().post('/api/auth/login', { email: 'EMP7777', password: 'longenough1' })).status, 200, 'employee-id login works too');
+  });
+
+  test('validation: duplicate email, weak / mismatched password, missing fields', async () => {
+    const c = client();
+    const dup = await c.post('/api/auth/register', form());
+    assert.equal(dup.status, 422);
+    assert.match(dup.json.errors.email[0], /already exists/);
+    assert.equal((await c.post('/api/auth/register', form({ email: 'SITA@EXAMPLE.COM' }))).status, 422, 'email match is case-insensitive');
+
+    const weak = await c.post('/api/auth/register', form({ email: 'a1@example.com', password: 'short', password_confirmation: 'short' }));
+    assert.equal(weak.status, 422);
+    assert.match(weak.json.errors.password[0], /at least 8/);
+
+    const mismatch = await c.post('/api/auth/register', form({ email: 'a2@example.com', password_confirmation: 'different123' }));
+    assert.equal(mismatch.status, 422);
+    assert.match(mismatch.json.errors.password_confirmation[0], /does not match/);
+
+    const long = await c.post('/api/auth/register', form({ email: 'a3@example.com', password: 'x'.repeat(73), password_confirmation: 'x'.repeat(73) }));
+    assert.equal(long.status, 422);
+
+    const empty = await c.post('/api/auth/register', {});
+    assert.equal(empty.status, 422);
+    assert.ok(empty.json.errors.name && empty.json.errors.email && empty.json.errors.password);
+    assert.equal((await c.post('/api/auth/register', form({ email: 'not-an-email' }))).status, 422);
+
+    // none of the failed attempts created an account
+    assert.equal((await pool.query("SELECT COUNT(*) AS n FROM users WHERE email LIKE 'a_@example.com' OR email = 'not-an-email'"))[0][0].n, 0);
+  });
+
+  test('can be switched off with ALLOW_SIGNUP=false', async () => {
+    config.auth.allowSignup = false;
+    try {
+      const c = client();
+      assert.equal((await c.get('/api/auth/config')).json.signup, false);
+      const res = await c.post('/api/auth/register', form({ email: 'blocked@example.com' }));
+      assert.equal(res.status, 403);
+      assert.equal((await pool.query("SELECT COUNT(*) AS n FROM users WHERE email = 'blocked@example.com'"))[0][0].n, 0);
+    } finally {
+      config.auth.allowSignup = true;
+    }
   });
 });

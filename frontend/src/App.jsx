@@ -15,6 +15,7 @@ import Certificates from './pages/Certificates.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
 import Notifications from './pages/Notifications.jsx';
+import Signup from './pages/Signup.jsx';
 import ProfileEdit from './pages/ProfileEdit.jsx';
 import ProfileShow from './pages/ProfileShow.jsx';
 import QuarterDetail from './pages/QuarterDetail.jsx';
@@ -48,22 +49,28 @@ function Guard({ roles, permission, children }) {
 }
 
 function Protected() {
-  const { user, ready } = useAuth();
+  const { user, ready, signedOut } = useAuth();
   const location = useLocation();
   if (!ready) return <Loading />;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  if (!user) {
+    // Explicit sign-out: say so. Expired session / deep link: remember the page and return to it after login.
+    const state = signedOut ? { flash: 'You have been signed out.' } : { from: location.pathname + location.search };
+    return <Navigate to="/login" replace state={state} />;
+  }
   return <Layout />;
 }
 
 const STAFF = ['quarter_clerk', 'estate_officer', 'admin', 'super_admin'];
 
 export default function App() {
-  const { user, ready } = useAuth();
+  const { ready } = useAuth();
   if (!ready) return <Loading />;
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+      {/* Login / Signup redirect already-signed-in visitors themselves (see `submitting` in those pages) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
 
       <Route element={<Protected />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

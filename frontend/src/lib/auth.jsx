@@ -26,9 +26,15 @@ export function AuthProvider({ children }) {
     setState({ user: d.user, badges: d.badges, ready: true });
   }, []);
 
+  // Public employee self-registration; the API signs the new account in straight away.
+  const register = useCallback(async (form) => {
+    const d = await api.post('/auth/register', form);
+    setState({ user: d.user, badges: d.badges, ready: true });
+  }, []);
+
   const logout = useCallback(async () => {
     try { await api.post('/auth/logout'); } catch { /* already signed out */ }
-    setState({ user: null, badges: {}, ready: true });
+    setState({ user: null, badges: {}, ready: true, signedOut: true }); // explicit sign-out (vs. an expired session)
   }, []);
 
   const value = useMemo(() => {
@@ -37,6 +43,7 @@ export function AuthProvider({ children }) {
     return {
       ...state,
       login,
+      register,
       logout,
       refresh,
       roles,
@@ -44,7 +51,7 @@ export function AuthProvider({ children }) {
       // super_admin shortcut - full access (same rule as the API)
       hasPermission: (slug) => roles.includes('super_admin') || perms.includes(slug),
     };
-  }, [state, login, logout, refresh]);
+  }, [state, login, register, logout, refresh]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

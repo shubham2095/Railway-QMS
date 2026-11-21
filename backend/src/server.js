@@ -28,7 +28,9 @@ function fail(code, lines) {
     await pool.query('SELECT 1');
   } catch (err) {
     return fail(`database_unreachable (${err.code ?? 'error'})`, [
-      `\n[rqms] Cannot connect to MySQL at ${config.db.host}:${config.db.port} (db "${config.db.database}") - ${err.code ?? err.message}`,
+      `\n[rqms] Cannot connect to MySQL at ${config.db.host}:${config.db.port} as "${config.db.user}" (db "${config.db.database}")`,
+      `       ${err.code ?? 'error'}: ${err.message}`,
+      '       (ER_ACCESS_DENIED_ERROR = wrong user/password/host grant; ECONNREFUSED / ENOTFOUND / ETIMEDOUT = wrong DB_HOST or port)',
       '       Check the DB_* / DATABASE_URL settings. On XAMPP start MySQL, then run:  npm run db:setup\n',
     ]);
   }

@@ -111,6 +111,7 @@ existing tables and only adds the roles/permissions and your first admin.
 | Build fails on `vite` / "engine" errors | Set Node.js to **22.x** (Vite 8 needs 20.19+ or 22.12+). |
 | Build killed / out of memory | Try again after a redeploy; if it keeps failing, build locally (`npm run build`) and tell me – the build output can be committed instead. |
 | `JWT_SECRET must be set ...` | Add `JWT_SECRET` (any long random string). |
+| Log: `Cannot connect to MySQL ... ECONNREFUSED / ENOTFOUND / ETIMEDOUT` and `localhost` does not work | Your app probably runs on a different server than MySQL. In hPanel → **Databases** look for **Remote MySQL** / the connection details and use the **hostname shown there** as `DB_HOST` (and allow the app's IP there if it asks for one). Try `127.0.0.1` instead of `localhost` too. |
 | `Cannot connect to MySQL ... ECONNREFUSED / ENOTFOUND` | Host must be `localhost`, port `3306`; use the **prefixed** DB name and user from hPanel. |
 | `Access denied for user` | Wrong password, or the user is not assigned to that database in hPanel. If the password has special characters, URL-encode it in `DATABASE_URL` or use the separate `DB_*` variables. |
 | Login works but you are logged out immediately | `COOKIE_SECURE=true` only works on **https://** – open the site via https (or set it to `false` while testing over http). |

@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'node:url';
-import { first, insert, pool, query, update } from '../db.js';
+import { first, insert, pool, query, transaction, update } from '../db.js';
 import { fmtDate } from '../utils/dates.js';
 import { runEngine, submitApplication } from '../services/applications.js';
 
@@ -72,10 +72,13 @@ export async function seedRolesAndPermissions() {
     for (const [slug, name] of Object.entries(items)) permIds[slug] = await upsert('permissions', { slug }, { name, group });
   }
 
-  for (const [roleSlug, permSlugs] of Object.entries(ROLE_PERMISSIONS)) {
-    await query('DELETE FROM permission_role WHERE role_id = ?', [roleIds[roleSlug]]);
-    for (const p of permSlugs) await query('INSERT INTO permission_role (permission_id, role_id) VALUES (?, ?)', [permIds[p], roleIds[roleSlug]]);
-  }
+  // One transaction: other app instances never see a half-written permission matrix while this runs.
+  await transaction(async () => {
+    for (const [roleSlug, permSlugs] of Object.entries(ROLE_PERMISSIONS)) {
+      await query('DELETE FROM permission_role WHERE role_id = ?', [roleIds[roleSlug]]);
+      for (const p of permSlugs) await query('INSERT INTO permission_role (permission_id, role_id) VALUES (?, ?)', [permIds[p], roleIds[roleSlug]]);
+    }
+  });
   return roleIds;
 }
 

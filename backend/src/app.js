@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import multer from 'multer';
 import { config } from './config/index.js';
 import { requestContext } from './context.js';
+import { state } from './state.js';
 import { authenticate } from './middleware/auth.js';
 import { HttpError } from './utils/http.js';
 
@@ -56,7 +57,17 @@ export function createApp() {
     requestContext.run({ user: null, ip: req.ip, userAgent: req.get('user-agent') ?? null }, next);
   });
 
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/health', (_req, res) =>
+    res.status(state.ready ? 200 : 503).json({ status: state.ready ? 'ok' : state.error ? 'error' : 'starting', ready: state.ready, ...(state.error ? { error: state.error } : {}) }),
+  );
+
+  // While the database check / first-run bootstrap is still running (or failed) the API is unavailable.
+  app.use('/api', (_req, res, next) => {
+    if (state.ready) return next();
+    res.status(503).json({
+      message: state.error ? `The server could not start (${state.error}). Check the application logs.` : 'The server is starting - please retry in a few seconds.',
+    });
+  });
 
   // ---- public ----
   app.use('/api/auth', authRouter);
@@ -87,6 +98,8 @@ export function createApp() {
   if (fs.existsSync(indexHtml)) {
     app.use(express.static(config.frontendDist, { index: false, maxAge: '1h' }));
     app.get('/{*splat}', (_req, res) => res.sendFile(indexHtml));
+  } else if (process.env.NODE_ENV !== 'test') {
+    console.warn(`[rqms] ${indexHtml} not found - serving the API only. Run "npm run build" to build the React app.`);
   }
 
   // ---- errors ----

@@ -105,6 +105,9 @@ existing tables and only adds the roles/permissions and your first admin.
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|
+| `503 Service Unavailable` right after a successful build | Open `https://your-subdomain/api/health`. `{"status":"ok"}` = app is fine (wait a few seconds / hard-refresh). `{"status":"error","error":"database_unreachable (...)"}` = fix the DB variables (see below). A plain LiteSpeed 503 page with `ERR_REQUIRE_ASYNC_MODULE` in the logs means an **old deployment** – pull the latest `main` and redeploy. |
+| Build says it cloned the wrong project (`client` workspace, `concurrently`, `sequelize`…) | You selected another repo. Import **`shubham2095/Railway-QMS`**. |
+| Log shows `frontend/dist not found - serving the API only` | The React build output was not included in the runtime copy. Check that the build command is `npm run build` and the build log ends with `built in ...`; tell me the build log if it still happens. |
 | Build fails on `vite` / "engine" errors | Set Node.js to **22.x** (Vite 8 needs 20.19+ or 22.12+). |
 | Build killed / out of memory | Try again after a redeploy; if it keeps failing, build locally (`npm run build`) and tell me – the build output can be committed instead. |
 | `JWT_SECRET must be set ...` | Add `JWT_SECRET` (any long random string). |

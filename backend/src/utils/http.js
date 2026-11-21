@@ -47,6 +47,12 @@ export const reqStr = (label, max = 255) =>
       .max(max, `The ${label} must not be greater than ${max} characters.`),
   );
 
+/** Phone number: 10-15 digits with an optional leading +; spaces, dashes and brackets are ignored (and stripped). */
+export const phoneField = (label = 'phone number') =>
+  reqStr(label, 25)
+    .transform((v) => v.replace(/[\s\-()]/g, ''))
+    .pipe(z.string().regex(/^\+?[0-9]{10,15}$/, 'Enter a valid phone number (10 to 15 digits).'));
+
 export const optStr = (label, max = 255) =>
   z.preprocess(
     (v) => (typeof v === 'string' ? blankToUndef(v.trim()) : blankToUndef(v)),

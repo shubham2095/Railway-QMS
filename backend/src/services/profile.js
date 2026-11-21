@@ -10,10 +10,18 @@
  */
 export const REQUIRED_PROFILE_FIELDS = {
   employee_id: 'Employee ID',
+  pf_number: 'PF number',
   designation: 'Designation',
+  department: 'Department',
+  station: 'Station',
+  division: 'Division',
+  railway_zone: 'Railway zone',
   category: 'Category',
   service_type: 'Service type',
+  grade_pay: 'Grade pay',
+  pay_level: 'Pay level',
   date_of_joining: 'Date of joining',
+  retirement_date: 'Retirement date',
 };
 
 const filled = (v) => v !== null && v !== undefined && String(v).trim() !== '';

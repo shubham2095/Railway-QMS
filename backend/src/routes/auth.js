@@ -9,7 +9,7 @@ import { STEP_FOR_ROLE } from '../domain.js';
 import { authenticate, clearSession, issueSession, loadAuthUser, resolveSession } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
 import { isProfileComplete, missingProfileFields } from '../services/profile.js';
-import { HttpError, reqStr, validate } from '../utils/http.js';
+import { HttpError, phoneField, reqStr, validate } from '../utils/http.js';
 
 const router = Router();
 
@@ -36,10 +36,7 @@ const registerSchema = z
   .object({
     name: reqStr('name', 120),
     email: reqStr('email').pipe(z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'The email must be a valid email address.')),
-    // Phone number: digits with an optional leading +, 10-15 digits; spaces, dashes and brackets are ignored.
-    mobile: reqStr('phone number', 25)
-      .transform((v) => v.replace(/[\s\-()]/g, ''))
-      .pipe(z.string().regex(/^\+?[0-9]{10,15}$/, 'Enter a valid phone number (10 to 15 digits).')),
+    mobile: phoneField(),
     // bcrypt only uses the first 72 bytes, so refuse longer passwords instead of silently truncating
     password: reqStr('password', 72).pipe(z.string().min(8, 'The password must be at least 8 characters.')),
     password_confirmation: reqStr('password confirmation', 72),

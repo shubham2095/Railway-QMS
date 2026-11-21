@@ -51,6 +51,7 @@ export default function ProfileShow() {
         }
         const rows = [
           ['Employee ID', <span className="mono">{profile.employee_id}</span>],
+          ['PF Number', profile.pf_number ? <span className="mono">{profile.pf_number}</span> : '—'],
           ['Name', user.name],
           ['Designation', profile.designation || '—'],
           ['Department', profile.department || '—'],
@@ -64,8 +65,8 @@ export default function ProfileShow() {
           ['Date of Joining', fmtDate(profile.date_of_joining)],
           ['Retirement Date', fmtDate(profile.retirement_date)],
           ['Service Years', `${profile.service_years} yr`],
-          ['Mobile', user.mobile || '—'],
-          ['Email', user.email],
+          ['Phone number', user.mobile || '—'],
+          ['Email ID', user.email],
         ];
         return (
           <div className="grid gap-6 lg:grid-cols-3">

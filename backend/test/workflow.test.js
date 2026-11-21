@@ -55,6 +55,15 @@ function client() {
   };
 }
 
+const isoYears = (n) => { const d = new Date(); d.setFullYear(d.getFullYear() + n); return d.toISOString().slice(0, 10); };
+/** A complete, valid profile payload (every service field is required). */
+const fullProfile = (over = {}) => ({
+  name: 'Test Employee', mobile: '9876543210',
+  employee_id: 'EMP5555', pf_number: 'PF5555', designation: 'Technician', department: 'Railways',
+  station: 'NDLS', division: 'Delhi', railway_zone: 'Northern Railway', category: 'GENERAL', service_type: 'non_essential',
+  grade_pay: 2800, pay_level: 'Level-5', date_of_joining: isoYears(-5), retirement_date: isoYears(25), ...over,
+});
+
 const as = {};
 before(async () => {
   server = createApp().listen(0);
@@ -176,17 +185,18 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
     assert.equal(bad.status, 422);
     assert.ok(bad.json.errors.employee_id && bad.json.errors.category);
 
-    const clash = await newUser.put('/api/profile', { employee_id: 'EMP1001', category: 'GENERAL', service_type: 'non_essential' });
+    const clash = await newUser.put('/api/profile', fullProfile({ employee_id: 'EMP1001' }));
     assert.equal(clash.status, 422, 'employee id must be unique');
+    assert.ok(clash.json.errors.employee_id);
+    const pfClash = await newUser.put('/api/profile', fullProfile({ pf_number: 'PF1001' }));
+    assert.equal(pfClash.status, 422, 'PF number must be unique');
+    assert.ok(pfClash.json.errors.pf_number);
 
-    const joined = new Date(); joined.setFullYear(joined.getFullYear() - 5);
-    const ok = await newUser.put('/api/profile', {
-      employee_id: 'EMP5555', designation: 'Technician', station: 'NDLS', division: 'Delhi', category: 'GENERAL',
-      service_type: 'non_essential', date_of_joining: joined.toISOString().slice(0, 10), mobile: '9876543210',
-    });
+    const ok = await newUser.put('/api/profile', fullProfile());
     assert.equal(ok.status, 200, ok.text);
     const p = await newUser.get('/api/profile');
     assert.equal(p.json.profile.service_years, 5);
+    assert.equal(p.json.profile.pf_number, 'PF5555');
     assert.equal(p.json.user.mobile, '9876543210');
 
     const fam = await newUser.post('/api/profile/family', { name: 'Asha', relation: 'Spouse', is_dependent: true });
@@ -580,7 +590,10 @@ describe('employee self-signup', () => {
     assert.equal(me.user.mobile, '9811111111');
     assert.equal(me.user.profile, null);
     assert.equal(me.user.profile_complete, false);
-    assert.deepEqual(me.user.missing_profile_fields, ['Employee ID', 'Designation', 'Category', 'Service type', 'Date of joining']);
+    assert.deepEqual(me.user.missing_profile_fields, [
+      'Employee ID', 'PF number', 'Designation', 'Department', 'Station', 'Division', 'Railway zone',
+      'Category', 'Service type', 'Grade pay', 'Pay level', 'Date of joining', 'Retirement date',
+    ]);
     for (const url of ['/api/quarters', '/api/admin/users', '/api/audit', '/api/reports', '/api/waiting-list']) {
       assert.equal((await c.get(url)).status, 403, url);
     }
@@ -601,18 +614,16 @@ describe('employee self-signup', () => {
     assert.equal(blocked.status, 422);
     assert.match(blocked.json.message, /complete your profile first/i);
 
-    // 2. required fields are enforced by the profile form
-    const incomplete = await c.put('/api/profile', { employee_id: 'EMP7777', category: 'GENERAL', service_type: 'non_essential' });
+    // 2. every field is required by the profile form
+    const incomplete = await c.put('/api/profile', { name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', category: 'GENERAL', service_type: 'non_essential' });
     assert.equal(incomplete.status, 422);
-    assert.ok(incomplete.json.errors.designation && incomplete.json.errors.date_of_joining);
+    for (const f of ['pf_number', 'designation', 'department', 'station', 'division', 'railway_zone', 'grade_pay', 'pay_level', 'date_of_joining', 'retirement_date']) {
+      assert.ok(incomplete.json.errors[f], `${f} is required`);
+    }
     assert.equal((await c.get('/api/auth/me')).json.user.profile_complete, false);
 
     // 3. complete it
-    const joined = new Date(); joined.setFullYear(joined.getFullYear() - 4);
-    const ok = await c.put('/api/profile', {
-      employee_id: 'EMP7777', designation: 'Clerk', station: 'NDLS', category: 'GENERAL', service_type: 'non_essential',
-      date_of_joining: joined.toISOString().slice(0, 10),
-    });
+    const ok = await c.put('/api/profile', fullProfile({ name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', pf_number: 'PF7777', designation: 'Clerk' }));
     assert.equal(ok.status, 200, ok.text);
     const me = (await c.get('/api/auth/me')).json.user;
     assert.equal(me.profile_complete, true);
@@ -624,6 +635,55 @@ describe('employee self-signup', () => {
     fd.append('preferred_quarter_type', 'II');
     assert.equal((await c.form('/api/applications', fd)).status, 201);
     assert.equal((await client().post('/api/auth/login', { email: 'EMP7777', password: 'longenough1' })).status, 200, 'employee-id login works too');
+  });
+
+  test('signup details are carried into the profile; name/phone editable, email is not', async () => {
+    const c = client();
+    await c.login('sita@example.com', 'longenough1');
+    const g = (await c.get('/api/profile')).json;
+    assert.equal(g.user.name, 'Sita Verma');
+    assert.equal(g.user.email, 'sita@example.com');
+    assert.equal(g.user.mobile, '9811111111');
+
+    // correcting name + phone through the profile works; an email in the payload is ignored
+    const res = await c.put('/api/profile', fullProfile({ name: 'Sita K. Verma', mobile: '+91 98111-22222', employee_id: 'EMP7777', pf_number: 'PF7777', email: 'hacker@example.com' }));
+    assert.equal(res.status, 200, res.text);
+    const after = (await c.get('/api/profile')).json.user;
+    assert.equal(after.name, 'Sita K. Verma');
+    assert.equal(after.mobile, '+919811122222');
+    assert.equal(after.email, 'sita@example.com');
+    await c.put('/api/profile', fullProfile({ name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', pf_number: 'PF7777' }));
+  });
+
+  test('profile sanity rules and the completeness rule', async () => {
+    const c = client();
+    await c.login('sita@example.com', 'longenough1');
+    const base = { employee_id: 'EMP7777', pf_number: 'PF7777', name: 'Sita Verma', mobile: '9811111111' };
+
+    const early = await c.put('/api/profile', fullProfile({ ...base, retirement_date: isoYears(-6) }));
+    assert.equal(early.status, 422);
+    assert.match(early.json.errors.retirement_date[0], /after the date of joining/);
+    const future = await c.put('/api/profile', fullProfile({ ...base, date_of_joining: isoYears(1), retirement_date: isoYears(30) }));
+    assert.equal(future.status, 422);
+    assert.match(future.json.errors.date_of_joining[0], /future/);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, grade_pay: '' }))).status, 422);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, grade_pay: -5 }))).status, 422);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, mobile: '123' }))).status, 422);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, category: 'XYZ' }))).status, 422);
+    assert.equal((await c.put('/api/profile', fullProfile({ ...base, retirement_date: 'not-a-date' }))).status, 422);
+
+    // a profile created before a field became mandatory (e.g. PF number) is treated as incomplete
+    await pool.query("UPDATE employee_profiles SET pf_number = NULL WHERE employee_id = 'EMP7777'");
+    let me = (await c.get('/api/auth/me')).json.user;
+    assert.equal(me.profile_complete, false);
+    assert.deepEqual(me.missing_profile_fields, ['PF number']);
+    const fd = new FormData(); fd.append('preferred_quarter_type', 'II');
+    const blocked = await c.form('/api/applications', fd);
+    assert.equal(blocked.status, 422);
+    assert.match(blocked.json.message, /PF number/);
+    await c.put('/api/profile', fullProfile({ ...base }));
+    me = (await c.get('/api/auth/me')).json.user;
+    assert.equal(me.profile_complete, true);
   });
 
   test('validation: duplicate email, weak / mismatched password, missing fields', async () => {

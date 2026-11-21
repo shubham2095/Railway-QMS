@@ -1,5 +1,6 @@
 import { config } from './config/index.js';
 import { pool, query, scalar } from './db.js';
+import { runMigrations } from './migrations.js';
 import { applySchema } from './scripts/schema.js';
 import { createSuperAdmin, seedAll, seedRolesAndPermissions } from './scripts/seed.js';
 
@@ -33,9 +34,17 @@ async function withBootstrapLock(fn) {
   }
 }
 
+/**
+ * Runs at every start. Under one lock (several instances may start together):
+ *   1. optional first-run bootstrap (AUTO_BOOTSTRAP=true),
+ *   2. schema migrations for databases created by an older version.
+ */
 export async function bootstrap() {
-  if (!config.bootstrap.enabled) return;
-  await withBootstrapLock(runBootstrap);
+  await withBootstrapLock(async () => {
+    if (config.bootstrap.enabled) await runBootstrap();
+    const applied = await runMigrations();
+    if (applied.length) console.log(`[migrate] Applied: ${applied.join(', ')}`);
+  });
 }
 
 async function runBootstrap() {

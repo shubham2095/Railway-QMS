@@ -85,7 +85,7 @@ Hostinger deploys a new Node.js app to a temporary URL first; then connect your 
 3. Open **Users & Roles** and create the real accounts (clerk, estate officer, electrical / water / accounts desks, employees).
    Assign the right role to each – the roles are already created.
 
-Updates: push to `main` → Hostinger rebuilds automatically (if auto-deploy is on).
+Updates: push to `main` → Hostinger rebuilds automatically (if auto-deploy is on). Database changes between versions (for example the new `pf_number` column) are applied **automatically on start** by the built-in migrations, so you never need to touch phpMyAdmin for an upgrade; existing data is kept.
 
 ---
 

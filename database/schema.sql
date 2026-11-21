@@ -70,6 +70,7 @@ CREATE TABLE employee_profiles (
   id                   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id              BIGINT UNSIGNED NOT NULL,
   employee_id          VARCHAR(255) NOT NULL,
+  pf_number            VARCHAR(50)  NULL,                              -- Provident Fund number
   designation          VARCHAR(255) NULL,
   department           VARCHAR(255) NULL,
   station              VARCHAR(255) NULL,

@@ -5,6 +5,18 @@ import { Async, Card, ErrorBanner, Required } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAction, useApi } from '../lib/hooks.js';
 
+// Roles in active use for now; the department roles stay available but tucked away.
+const IN_USE = ['employee', 'quarter_clerk', 'admin', 'super_admin'];
+
+function RoleOption({ r, f, toggle }) {
+  return (
+    <label className="flex items-center gap-2 rounded-lg border border-edge px-3 py-2 text-sm hover:bg-canvas">
+      <input type="checkbox" checked={f.roles.includes(r.id)} onChange={() => toggle(r.id)} className="rounded border-edge text-rail focus:ring-rail" />
+      <span className="text-ink">{r.name}</span>
+    </label>
+  );
+}
+
 export default function AdminUserForm() {
   const { id } = useParams();
   const editing = Boolean(id);
@@ -51,13 +63,15 @@ export default function AdminUserForm() {
               </Card>
               <Card title="Roles">
                 <div className="space-y-2">
-                  {roles.map((r) => (
-                    <label key={r.id} className="flex items-center gap-2 rounded-lg border border-edge px-3 py-2 text-sm hover:bg-canvas">
-                      <input type="checkbox" checked={f.roles.includes(r.id)} onChange={() => toggleRole(r.id)} className="rounded border-edge text-rail focus:ring-rail" />
-                      <span className="text-ink">{r.name}</span>
-                    </label>
-                  ))}
+                  {roles.filter((r) => IN_USE.includes(r.slug)).map((r) => <RoleOption key={r.id} r={r} f={f} toggle={toggleRole} />)}
                 </div>
+                {/* Department roles exist for the later clearance workflow but are not used yet. */}
+                <details className="mt-4 text-sm" open={roles.some((r) => !IN_USE.includes(r.slug) && f.roles.includes(r.id))}>
+                  <summary className="cursor-pointer text-xs font-medium text-slate-500">More roles (not in use yet)</summary>
+                  <div className="mt-2 space-y-2">
+                    {roles.filter((r) => !IN_USE.includes(r.slug)).map((r) => <RoleOption key={r.id} r={r} f={f} toggle={toggleRole} />)}
+                  </div>
+                </details>
               </Card>
               <div className="flex justify-end gap-2 lg:col-span-3">
                 <Link to="/admin/users" className="btn-ghost">Cancel</Link>

@@ -5,19 +5,33 @@ import { Async, Card, ErrorBanner, Required } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { CATEGORIES, SERVICE_TYPES } from '../lib/constants.js';
+import { todayIso } from '../lib/format.js';
 import { useAction, useApi } from '../lib/hooks.js';
 
+// Account details come from signup (pre-filled); the rest are the employee's service particulars.
+// Every field is required - keep in sync with REQUIRED_PROFILE_FIELDS in backend/src/services/profile.js.
 const EMPTY = {
-  employee_id: '', mobile: '', designation: '', department: '', station: '', division: '', railway_zone: '',
-  category: 'GENERAL', service_type: 'non_essential', grade_pay: '', pay_level: '', date_of_joining: '', retirement_date: '',
+  name: '', email: '', mobile: '',
+  employee_id: '', pf_number: '', designation: '', department: '', station: '', division: '', railway_zone: '',
+  category: '', service_type: '', grade_pay: '', pay_level: '', date_of_joining: '', retirement_date: '',
 };
+const SERVICE_FIELDS = Object.keys(EMPTY).filter((k) => !['name', 'email', 'mobile'].includes(k));
+
+function Text({ label, name, f, set, mono = false, ...rest }) {
+  return (
+    <div>
+      <label className="lbl" htmlFor={name}>{label}<Required /></label>
+      <input id={name} name={name} required className={`input ${mono ? 'mono' : ''}`} value={f[name]} onChange={set(name)} {...rest} />
+    </div>
+  );
+}
 
 export default function ProfileEdit() {
   const q = useApi('/profile');
   const navigate = useNavigate();
   const { refresh, user: me } = useAuth();
   const firstTime = !me.profile_complete; // finishing the profile for the first time -> unlocks the app
-  useHeader(firstTime ? 'Complete your profile' : 'Edit Profile', firstTime ? 'Step 1 — required before you can use the system' : 'Update your service particulars');
+  useHeader(firstTime ? 'Complete your profile' : 'Edit Profile', firstTime ? 'Step 1 — required before you can use the system' : 'Update your details');
   const save = useAction();
   const [f, setF] = useState(EMPTY);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
@@ -25,12 +39,15 @@ export default function ProfileEdit() {
   useEffect(() => {
     if (!q.data) return;
     const { profile: p, user } = q.data;
-    setF({ ...EMPTY, ...Object.fromEntries(Object.entries(p ?? {}).filter(([k]) => k in EMPTY).map(([k, v]) => [k, v ?? ''])), mobile: user.mobile ?? '' });
+    // signup details (name, email, phone) are pre-filled from the account; service fields from the saved profile
+    const saved = Object.fromEntries(SERVICE_FIELDS.map((k) => [k, p?.[k] ?? '']));
+    setF({ ...EMPTY, ...saved, name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '' });
   }, [q.data]);
 
   const submit = async (e) => {
     e.preventDefault();
-    const ok = await save.run(() => api.put('/profile', f));
+    const { email: _email, ...payload } = f; // the email (login ID) is not editable
+    const ok = await save.run(() => api.put('/profile', payload));
     if (ok) {
       await refresh();
       navigate(firstTime ? '/dashboard' : '/profile', {
@@ -42,43 +59,58 @@ export default function ProfileEdit() {
   return (
     <Async q={q}>
       {() => (
-        <form onSubmit={submit} className="mx-auto max-w-3xl">
+        <form onSubmit={submit} className="mx-auto max-w-3xl space-y-6">
           <ErrorBanner error={save.error} />
           {firstTime && (
-            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <p className="font-semibold">Please complete your profile to continue.</p>
               <p className="mt-0.5">Fields marked <span className="text-signal">*</span> are required. The rest of the system opens as soon as you save.</p>
             </div>
           )}
-          <Card title="Employee profile" subtitle="Module 1 — fields used by the eligibility & priority engine">
+
+          <Card title="Account details" subtitle="Filled in from your sign-up">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div><label className="lbl">Employee ID<Required /></label><input className="input mono" required value={f.employee_id} onChange={set('employee_id')} /></div>
-              <div><label className="lbl">Phone number</label><input className="input" value={f.mobile} onChange={set('mobile')} /></div>
-              <div><label className="lbl">Designation<Required /></label><input className="input" required value={f.designation} onChange={set('designation')} /></div>
-              <div><label className="lbl">Department</label><input className="input" value={f.department} onChange={set('department')} /></div>
-              <div><label className="lbl">Station</label><input className="input" value={f.station} onChange={set('station')} /></div>
-              <div><label className="lbl">Division</label><input className="input" value={f.division} onChange={set('division')} /></div>
-              <div><label className="lbl">Railway Zone</label><input className="input" value={f.railway_zone} onChange={set('railway_zone')} /></div>
+              <Text label="Full name" name="name" f={f} set={set} maxLength={120} autoComplete="name" />
               <div>
-                <label className="lbl">Category<Required /></label>
-                <select className="input" required value={f.category} onChange={set('category')}>
+                <label className="lbl" htmlFor="email">Email ID</label>
+                <input id="email" name="email" className="input cursor-not-allowed bg-canvas text-slate-500" value={f.email} readOnly disabled />
+                <p className="mt-1 text-[11px] text-slate-400">This is your login ID and cannot be changed here.</p>
+              </div>
+              <Text label="Phone number" name="mobile" f={f} set={set} type="tel" maxLength={25} autoComplete="tel" />
+            </div>
+          </Card>
+
+          <Card title="Service details" subtitle="Used by the eligibility & priority engine">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Text label="Employee ID" name="employee_id" f={f} set={set} mono maxLength={50} />
+              <Text label="PF Number" name="pf_number" f={f} set={set} mono maxLength={50} />
+              <Text label="Designation" name="designation" f={f} set={set} maxLength={120} />
+              <Text label="Department" name="department" f={f} set={set} maxLength={120} />
+              <Text label="Station" name="station" f={f} set={set} maxLength={120} />
+              <Text label="Division" name="division" f={f} set={set} maxLength={120} />
+              <Text label="Railway Zone" name="railway_zone" f={f} set={set} maxLength={120} />
+              <div>
+                <label className="lbl" htmlFor="category">Category<Required /></label>
+                <select id="category" name="category" required className="input" value={f.category} onChange={set('category')}>
+                  <option value="" disabled>Select category…</option>
                   {Object.entries(CATEGORIES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
               <div>
-                <label className="lbl">Service Type<Required /></label>
-                <select className="input" required value={f.service_type} onChange={set('service_type')}>
+                <label className="lbl" htmlFor="service_type">Service Type<Required /></label>
+                <select id="service_type" name="service_type" required className="input" value={f.service_type} onChange={set('service_type')}>
+                  <option value="" disabled>Select service type…</option>
                   {Object.entries(SERVICE_TYPES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
-              <div><label className="lbl">Grade Pay</label><input type="number" min="0" className="input" value={f.grade_pay} onChange={set('grade_pay')} /></div>
-              <div><label className="lbl">Pay Level</label><input className="input" value={f.pay_level} onChange={set('pay_level')} /></div>
-              <div><label className="lbl">Date of Joining<Required /></label><input type="date" className="input" required value={f.date_of_joining} onChange={set('date_of_joining')} /></div>
-              <div><label className="lbl">Retirement Date</label><input type="date" className="input" value={f.retirement_date} onChange={set('retirement_date')} /></div>
+              <Text label="Grade Pay (₹)" name="grade_pay" f={f} set={set} type="number" min="0" step="1" inputMode="numeric" />
+              <Text label="Pay Level" name="pay_level" f={f} set={set} maxLength={50} placeholder="e.g. Level-6" />
+              <Text label="Date of Joining" name="date_of_joining" f={f} set={set} type="date" max={todayIso()} />
+              <Text label="Retirement Date" name="retirement_date" f={f} set={set} type="date" min={f.date_of_joining || undefined} />
             </div>
             <div className="mt-5 flex justify-end gap-2 border-t border-edge pt-4">
               {!firstTime && <Link to="/profile" className="btn-ghost">Cancel</Link>}
-              <button className="btn-signal px-6" disabled={save.busy}>{firstTime ? 'Save & continue' : 'Save profile'}</button>
+              <button className="btn-signal px-6" disabled={save.busy}>{save.busy ? 'Saving…' : firstTime ? 'Save & continue' : 'Save profile'}</button>
             </div>
           </Card>
         </form>

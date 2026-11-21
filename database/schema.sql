@@ -2,12 +2,11 @@
 -- RQMS - Railway Quarter Management System
 -- MySQL / MariaDB schema (compatible with XAMPP's MariaDB and MySQL 8)
 --
--- Import with phpMyAdmin (Import tab) or:   mysql -u root < database/schema.sql
--- The script creates the `rqms` database if it does not exist yet.
+-- Create an empty database first (utf8mb4_unicode_ci), then import this file into it:
+--   phpMyAdmin : select the database -> Import tab -> choose this file
+--   CLI        : mysql -u root rqms < database/schema.sql
+-- (`npm run db:setup` and the app's AUTO_BOOTSTRAP do all of this for you.)
 -- ============================================================================
-
-CREATE DATABASE IF NOT EXISTS `rqms` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `rqms`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS audit_logs, notification_logs, certificates, documents,

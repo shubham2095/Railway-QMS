@@ -19,6 +19,9 @@ const DEMO = [
   ['accounts@rqms.test', 'Accounts'], ['emp@rqms.test', 'Employee'],
 ];
 
+// Demo logins are shown in development only. Enable on a public build with VITE_SHOW_DEMO=true.
+const SHOW_DEMO = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMO === 'true';
+
 const fieldBox = 'flex items-stretch overflow-hidden rounded-lg border border-edge bg-white transition focus-within:border-rail focus-within:ring-2 focus-within:ring-rail/20';
 const iconBox = 'flex w-11 items-center justify-center border-r border-edge bg-canvas text-rail';
 
@@ -169,7 +172,7 @@ export default function Login() {
             </div>
 
             {/* demo accounts (dev convenience) */}
-            <div className="mt-4">
+            {SHOW_DEMO && <div className="mt-4">
               <button type="button" onClick={() => setDemoOpen(!demoOpen)}
                 className="flex w-full items-center justify-between rounded-lg bg-canvas px-3 py-2 text-xs font-medium text-rail ring-1 ring-edge hover:bg-white">
                 <span>Demo accounts (password: <span className="mono">password</span>)</span>
@@ -186,7 +189,7 @@ export default function Login() {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
           </div>
         </div>
       </div>

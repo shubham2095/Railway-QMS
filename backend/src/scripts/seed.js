@@ -177,6 +177,18 @@ export async function seedDemo(roleIds) {
   await applyFor(user2, profile2, { family_size: 3, medical_ground: true });
 }
 
+/** Create (or reset the password of) a super_admin account - used for the first login on a real deployment. */
+export async function createSuperAdmin({ email, password, name = 'Administrator' }) {
+  const roleIds = await seedRolesAndPermissions();
+  const userId = await upsert('users', { email }, {
+    name,
+    password: await bcrypt.hash(password, 10),
+    is_active: 1,
+  });
+  await query('INSERT IGNORE INTO role_user (role_id, user_id) VALUES (?, ?)', [roleIds.super_admin, userId]);
+  return userId;
+}
+
 export async function seedAll() {
   const roleIds = await seedRolesAndPermissions();
   await seedDemo(roleIds);

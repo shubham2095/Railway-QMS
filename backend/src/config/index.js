@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -7,11 +7,25 @@ import { fileURLToPath } from 'node:url';
 process.env.TZ = process.env.APP_TIMEZONE || 'Asia/Kolkata';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+// Real environment variables (set in a hosting panel) always win over backend/.env
+dotenv.config({ path: path.join(root, '.env'), quiet: true });
 const num = (name, fallback) => {
   const v = process.env[name];
   return v === undefined || v === '' ? fallback : Number(v);
 };
 const isProd = process.env.NODE_ENV === 'production';
+
+// Hosting panels often hand out a single connection string: mysql://user:pass@host:3306/dbname
+function dbFromUrl(raw) {
+  const u = new URL(raw);
+  return {
+    host: u.hostname,
+    port: Number(u.port) || 3306,
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: decodeURIComponent(u.pathname.replace(/^\//, '')),
+  };
+}
 
 let jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret || jwtSecret === 'change-me-to-a-long-random-string') {
@@ -27,16 +41,27 @@ export const config = {
   env: process.env.NODE_ENV || 'development',
   isProd,
   port: num('PORT', 5000),
-  storageDir: path.join(root, 'storage'),
+  // Uploaded documents + generated certificates. Point STORAGE_DIR outside the app folder on hosts that wipe it on redeploy.
+  storageDir: process.env.STORAGE_DIR ? path.resolve(process.env.STORAGE_DIR) : path.join(root, 'storage'),
   frontendDist: path.resolve(root, '..', 'frontend', 'dist'),
   clientOrigins: (process.env.CLIENT_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean),
 
-  db: {
-    host: process.env.DB_HOST || '127.0.0.1',
-    port: num('DB_PORT', 3306),
-    user: process.env.DB_USERNAME || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_DATABASE || 'rqms',
+  db: process.env.DATABASE_URL
+    ? dbFromUrl(process.env.DATABASE_URL)
+    : {
+        host: process.env.DB_HOST || '127.0.0.1',
+        port: num('DB_PORT', 3306),
+        user: process.env.DB_USERNAME || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_DATABASE || 'rqms',
+      },
+
+  // First-run bootstrap (see src/bootstrap.js): create tables + roles + first super admin automatically.
+  bootstrap: {
+    enabled: process.env.AUTO_BOOTSTRAP === 'true',
+    adminEmail: process.env.ADMIN_EMAIL || '',
+    adminPassword: process.env.ADMIN_PASSWORD || '',
+    adminName: process.env.ADMIN_NAME || 'Administrator',
   },
 
   auth: {

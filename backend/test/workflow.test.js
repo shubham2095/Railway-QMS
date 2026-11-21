@@ -10,19 +10,10 @@ process.env.NODE_ENV = 'test';
 process.env.DB_DATABASE = process.env.TEST_DB_DATABASE || 'rqms_test';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret';
 
-const { default: mysql } = await import('mysql2/promise');
-const { config } = await import('../src/config/index.js');
-const fs = await import('node:fs');
-const path = await import('node:path');
-
 // --- fresh schema ---
-const admin = await mysql.createConnection({ host: config.db.host, port: config.db.port, user: config.db.user, password: config.db.password, multipleStatements: true });
-await admin.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.database}\` CHARACTER SET utf8mb4`);
-await admin.query(`USE \`${config.db.database}\``);
-const schema = fs.readFileSync(path.join(config.root, '..', 'database', 'schema.sql'), 'utf8')
-  .split('\n').filter((l) => !/^\s*(CREATE DATABASE|USE)\b/i.test(l)).join('\n');
-await admin.query(schema);
-await admin.end();
+const { ensureDatabaseExists, applySchema } = await import('../src/scripts/schema.js');
+await ensureDatabaseExists();
+await applySchema();
 
 const { createApp } = await import('../src/app.js');
 const { seedAll } = await import('../src/scripts/seed.js');

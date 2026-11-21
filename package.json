@@ -2,16 +2,19 @@
   "name": "railway-qms",
   "version": "1.0.0",
   "private": true,
-  "description": "Railway Quarter Management System - Node.js, Express, React and MySQL (XAMPP)",
+  "type": "module",
+  "description": "Railway Quarter Management System - Node.js, Express, React and MySQL",
   "engines": { "node": "^20.19.0 || >=22.12.0" },
+  "main": "server.js",
   "scripts": {
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install --include=dev",
     "db:setup": "npm --prefix backend run db:setup",
     "db:fresh": "npm --prefix backend run db:fresh",
+    "db:admin": "npm --prefix backend run db:admin --",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
-    "start": "npm --prefix backend run start",
+    "build": "npm run install:all && npm --prefix frontend run build",
+    "start": "node server.js",
     "test": "npm --prefix backend test"
   }
 }

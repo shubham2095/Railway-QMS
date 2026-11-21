@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# environment (copy backend/.env.example -> backend/.env)
+.env
+.env.*
+!.env.example
+
+# build output
+frontend/dist/
+
+# runtime files created by the API (uploaded documents + generated certificates)
+backend/storage/*
+!backend/storage/.gitkeep
+
+# logs / OS / editor
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

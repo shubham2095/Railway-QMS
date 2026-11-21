@@ -1,4 +1,4 @@
-import { find, first, insert, transaction, update } from '../db.js';
+import { find, first, insert, query, transaction, update } from '../db.js';
 import { compactDate, randomUpper } from '../utils/helpers.js';
 import { nowStr } from '../utils/dates.js';
 import { audit, subject } from './audit.js';
@@ -91,6 +91,35 @@ export async function runEngine(applicationId) {
   });
 }
 
+/** Everyone who may approve applications (holds application.decide): admins, in practice. */
+const approvers = () =>
+  query(
+    `SELECT DISTINCT u.id, u.name, u.email, u.mobile
+       FROM users u
+       JOIN role_user ru ON ru.user_id = u.id
+       JOIN permission_role pr ON pr.role_id = ru.role_id
+       JOIN permissions pm ON pm.id = pr.permission_id
+      WHERE pm.slug = 'application.decide' AND u.is_active = 1`,
+  );
+
+/** The clerk has verified the application and its details: pass it on to the admin for approval. */
+export async function forwardApplication(application, clerk, remarks = null) {
+  await update('quarter_applications', application.id, {
+    status: 'forwarded',
+    forwarded_by: clerk.id,
+    forwarded_at: nowStr(),
+    forward_remarks: remarks,
+  });
+  await audit('application.forward', subject('application', application.id), 'Clerk forwarded the application to the admin', { remarks });
+
+  const owner = await userOfProfile(application.employee_profile_id);
+  for (const admin of await approvers()) {
+    await notify(admin, 'application_forwarded', `Application ${application.reference_no} (${owner?.name ?? 'employee'}) was verified by the clerk and is waiting for your approval.`, 'Application Awaiting Approval', ['email']);
+  }
+  await notify(owner, 'application_forwarded_employee', `Your application ${application.reference_no} has been verified and forwarded to the admin for approval.`, 'Application Forwarded', ['email']);
+  return find('quarter_applications', application.id);
+}
+
 /** The clerk's check failed: the application stops here and the employee is told why. */
 export async function rejectApplication(application, clerk, remarks) {
   await update('quarter_applications', application.id, {
@@ -123,8 +152,17 @@ export async function decideApplication(application, officer, approved, remarks 
   await audit(
     'application.decide',
     subject('application', application.id),
-    approved ? 'Estate Officer approved' : 'Estate Officer rejected',
+    approved ? 'Approved' : 'Rejected',
     { remarks },
+  );
+  await notify(
+    await userOfProfile(application.employee_profile_id),
+    approved ? 'application_approved' : 'application_rejected',
+    approved
+      ? `Your application ${application.reference_no} has been approved.`
+      : `Your application ${application.reference_no} was rejected${remarks ? `: ${remarks}` : '.'}`,
+    approved ? 'Application Approved' : 'Application Rejected',
+    ['email'],
   );
   return find('quarter_applications', application.id);
 }

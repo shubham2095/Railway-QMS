@@ -68,6 +68,8 @@ const decideSchema = z.object({
 
 const isStaff = (u) => u.hasPermission('application.verify') || u.hasPermission('application.decide') || u.hasRole('admin', 'super_admin');
 
+const nameOf = async (userId) => (userId ? (await first('SELECT name FROM users WHERE id = ?', [userId]))?.name ?? null : null);
+
 const loadApplication = async (id) => {
   const app = await find('quarter_applications', idParam(id));
   if (!app) throw new HttpError(404, 'Not found.');
@@ -177,6 +179,9 @@ router.get('/:id', async (req, res) => {
       colony_preferences: (await preferencesFor([app.id])).get(app.id) ?? [],
       profile_id: app.employee_profile_id,
       profile_verification_status: profileRow?.verification_status ?? null,
+      verified_by_name: await nameOf(app.verified_by),
+      forwarded_by_name: await nameOf(app.forwarded_by),
+      decided_by_name: await nameOf(app.decided_by),
     },
     documents,
     allotment,
@@ -196,11 +201,31 @@ router.post('/:id/verify', requirePermission('application.verify'), async (req, 
   res.json({ message: 'Verified. Eligibility & priority engine has run.' });
 });
 
+// POST /api/applications/:id/forward   { remarks? }  - the clerk passes a verified, eligible application to the admin
+router.post('/:id/forward', requirePermission('application.verify'), async (req, res) => {
+  const app = await loadApplication(req.params.id);
+  const { remarks } = validate(z.object({ remarks: optStr('remarks', 1000) }), req.body);
+  if (app.status !== 'waitlisted') {
+    throw new DomainError(
+      app.status === 'submitted'
+        ? 'Verify the application first, then forward it.'
+        : 'Only a verified and eligible application can be forwarded to the admin.',
+      'status',
+    );
+  }
+  const owner = await find('employee_profiles', app.employee_profile_id);
+  if (owner?.verification_status !== 'verified') throw new DomainError("The employee's profile is not verified.", 'profile');
+  await applications.forwardApplication(app, req.user, remarks ?? null);
+  res.json({ message: 'Forwarded to the admin for approval.' });
+});
+
 // POST /api/applications/:id/reject   { remarks }  - the clerk's check failed
 router.post('/:id/reject', requirePermission('application.verify'), async (req, res) => {
   const app = await loadApplication(req.params.id);
   const { remarks } = validate(z.object({ remarks: reqStr('remarks', 1000) }), req.body);
-  if (app.status !== 'submitted') throw new DomainError('Only submitted applications can be rejected by the clerk.', 'status');
+  if (!['submitted', 'ineligible'].includes(app.status)) {
+    throw new DomainError('The clerk can reject an application only before it is forwarded to the admin.', 'status');
+  }
   await applications.rejectApplication(app, req.user, remarks);
   res.json({ message: 'Application rejected.' });
 });
@@ -219,8 +244,8 @@ router.post('/:id/run-engine', requirePermission('application.verify'), async (r
 router.post('/:id/decide', requirePermission('application.decide'), async (req, res) => {
   const app = await loadApplication(req.params.id);
   const data = validate(decideSchema, req.body);
-  if (!['verified', 'eligible', 'waitlisted'].includes(app.status)) {
-    throw new DomainError('A decision can only be recorded for verified or waitlisted applications.', 'status');
+  if (app.status !== 'forwarded') {
+    throw new DomainError('An application can be approved or rejected only after the clerk has verified it and forwarded it.', 'status');
   }
   await applications.decideApplication(app, req.user, data.decision === 'approve', data.remarks ?? null);
   res.json({ message: 'Decision recorded.' });

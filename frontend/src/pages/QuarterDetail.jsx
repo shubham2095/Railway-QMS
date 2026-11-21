@@ -110,6 +110,14 @@ export default function QuarterDetail() {
                           </div>
                           <Pill status="neutral">{e.application.category}</Pill>
                         </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className={`rounded-full px-2 py-0.5 font-medium ring-1 ring-inset ${
+                            e.application.status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                            : e.application.status === 'forwarded' ? 'bg-amber-50 text-amber-700 ring-amber-600/20'
+                            : 'bg-slate-100 text-slate-500 ring-slate-500/20'}`}>
+                            {e.application.status === 'approved' ? 'Approved by admin' : e.application.status === 'forwarded' ? 'Awaiting admin approval' : 'Not yet forwarded to admin'}
+                          </span>
+                        </div>
                         <div className="mt-2 text-[11px]">
                           {e.colony_choice ? (
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">

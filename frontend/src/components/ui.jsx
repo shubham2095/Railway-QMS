@@ -76,17 +76,18 @@ const TONES = {
 };
 const toneOf = (s) => {
   if (['vacant', 'approved', 'accepted', 'eligible', 'sent', 'cleared', 'possession_taken', 'completed', 'active'].includes(s)) return 'emerald';
-  if (['pending', 'submitted', 'verified', 'waitlisted', 'offered', 'in_clearance', 'notice', 'queued', 'vacation_pending', 'reserved', 'expiring'].includes(s)) return 'amber';
+  if (['pending', 'submitted', 'verified', 'waitlisted', 'forwarded', 'offered', 'in_clearance', 'notice', 'queued', 'vacation_pending', 'reserved', 'expiring'].includes(s)) return 'amber';
   if (['rejected', 'ineligible', 'failed', 'overstaying', 'withdrawn', 'inactive', 'changes_requested'].includes(s)) return 'rose';
   if (['occupied', 'allotted', 'retained'].includes(s)) return 'sky';
   return 'slate';
 };
+const STATUS_LABELS = { forwarded: 'Forwarded to admin' };
 export function Pill({ status, children, className = '' }) {
   const s = String(status ?? '').toLowerCase();
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[toneOf(s)]} ${className}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-      {children ?? titleCase(s)}
+      {children ?? STATUS_LABELS[s] ?? titleCase(s)}
     </span>
   );
 }

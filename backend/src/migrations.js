@@ -93,6 +93,11 @@ const MIGRATIONS = [
   addColumn('employee_profiles', 'verification_remarks', 'TEXT NULL AFTER verified_at'),
   addIndex('employee_profiles', 'employee_profiles_verification_index', 'verification_status'),
   addForeignKey('employee_profiles', 'employee_profiles_verifier_fk', 'FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL'),
+  // Clerk -> admin approval flow
+  addColumn('quarter_applications', 'forwarded_by', 'BIGINT UNSIGNED NULL AFTER priority_breakdown'),
+  addColumn('quarter_applications', 'forwarded_at', 'DATETIME NULL AFTER forwarded_by'),
+  addColumn('quarter_applications', 'forward_remarks', 'TEXT NULL AFTER forwarded_at'),
+  addForeignKey('quarter_applications', 'qa_forwarded_fk', 'FOREIGN KEY (forwarded_by) REFERENCES users (id) ON DELETE SET NULL'),
   {
     // Applications made before ranked preferences existed: their single colony becomes the first choice.
     name: 'backfill application_colony_preferences',

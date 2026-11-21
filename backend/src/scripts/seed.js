@@ -60,7 +60,7 @@ const ROLE_PERMISSIONS = {
   electrical_dept: ['vacation.electrical'],
   water_dept: ['vacation.water'],
   accounts_dept: ['vacation.accounts'],
-  admin: ['users.manage', 'master.manage', 'settings.manage', 'quarter.manage', 'reports.view'],
+  admin: ['application.decide', 'users.manage', 'master.manage', 'settings.manage', 'quarter.manage', 'reports.view'],
   super_admin: Object.values(PERMISSIONS).flatMap((g) => Object.keys(g)),
 };
 

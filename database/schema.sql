@@ -153,6 +153,9 @@ CREATE TABLE quarter_applications (
   applied_at             DATETIME NULL,
   verified_by            BIGINT UNSIGNED NULL,
   verified_at            DATETIME NULL,
+  forwarded_by           BIGINT UNSIGNED NULL,          -- clerk who forwarded it to the admin
+  forwarded_at           DATETIME NULL,
+  forward_remarks        TEXT NULL,
   decided_by             BIGINT UNSIGNED NULL,
   decided_at             DATETIME NULL,
   remarks                TEXT NULL,
@@ -162,7 +165,8 @@ CREATE TABLE quarter_applications (
   KEY quarter_applications_type_station_status_index (preferred_quarter_type, station, status),
   CONSTRAINT qa_profile_fk  FOREIGN KEY (employee_profile_id) REFERENCES employee_profiles (id) ON DELETE CASCADE,
   CONSTRAINT qa_verified_fk FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL,
-  CONSTRAINT qa_decided_fk  FOREIGN KEY (decided_by)  REFERENCES users (id) ON DELETE SET NULL
+  CONSTRAINT qa_decided_fk  FOREIGN KEY (decided_by)  REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT qa_forwarded_fk FOREIGN KEY (forwarded_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ------------------------------ Module 3: ranked colony preferences (up to 3 per application)

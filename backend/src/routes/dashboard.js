@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
       occupied: await count("SELECT COUNT(*) FROM quarters WHERE status = 'occupied'"),
       vacant: await count("SELECT COUNT(*) FROM quarters WHERE status = 'vacant'"),
       maintenance: await count("SELECT COUNT(*) FROM quarters WHERE status = 'under_maintenance'"),
-      pending_apps: await count("SELECT COUNT(*) FROM quarter_applications WHERE status IN ('submitted','verified','waitlisted')"),
+      pending_apps: await count("SELECT COUNT(*) FROM quarter_applications WHERE status IN ('submitted','verified','waitlisted','forwarded')"),
       waitlist: await count('SELECT COUNT(*) FROM waiting_list_entries WHERE is_active = 1'),
       active_allotments: await count("SELECT COUNT(*) FROM allotments WHERE status IN ('possession_taken','accepted')"),
       vacations_clearing: await count("SELECT COUNT(*) FROM vacation_requests WHERE status = 'in_clearance'"),

@@ -19,6 +19,7 @@ export default function ApplicationDetail() {
   const q = useApi(`/applications/${id}`);
   const { hasPermission, hasRole, refresh } = useAuth();
   const [rejectRemarks, setRejectRemarks] = useState('');
+  const [forwardRemarks, setForwardRemarks] = useState('');
   const flash = useFlash();
   const act = useAction();
   const [remarks, setRemarks] = useState('');
@@ -34,6 +35,13 @@ export default function ApplicationDetail() {
       {({ application: a, documents, allotment }) => {
         const canVerify = hasPermission('application.verify');
         const canDecide = hasPermission('application.decide');
+        const rejectBlock = (
+          <div className="mt-4 space-y-2 border-t border-edge pt-4">
+            <textarea rows="2" className="input mt-0" placeholder="Reason, if you are rejecting this application (required)" value={rejectRemarks} onChange={(e) => setRejectRemarks(e.target.value)} />
+            <button className="btn-signal w-full" disabled={act.busy || !rejectRemarks.trim()}
+              onClick={run(() => api.post(`/applications/${id}/reject`, { remarks: rejectRemarks }), 'Application rejected.')}>Reject application</button>
+          </div>
+        );
         const elig = a.eligibility_result;
         const brk = a.priority_breakdown;
         return (
@@ -162,14 +170,24 @@ export default function ApplicationDetail() {
                       <Link to={`/employees/${a.profile_id}`} className="font-semibold underline">Open profile</Link>
                     </div>
                   )}
-                  <p className="mb-3 text-sm text-slate-500">Check the details and documents, then proceed: the eligibility &amp; priority engine runs and the applicant joins the waiting list.</p>
+                  <p className="mb-3 text-sm text-slate-500">Check the employee&apos;s details and documents, then verify: the eligibility &amp; priority engine runs. If the applicant is eligible you can then forward the application to the admin.</p>
                   <button className="btn-primary w-full" disabled={act.busy || a.profile_verification_status !== 'verified'}
-                    onClick={run(() => api.post(`/applications/${id}/verify`), 'Verified. Eligibility & priority engine has run.')}>Verify &amp; proceed</button>
-                  <div className="mt-4 space-y-2 border-t border-edge pt-4">
-                    <textarea rows="2" className="input mt-0" placeholder="Reason, if you are rejecting this application (required)" value={rejectRemarks} onChange={(e) => setRejectRemarks(e.target.value)} />
-                    <button className="btn-signal w-full" disabled={act.busy || !rejectRemarks.trim()}
-                      onClick={run(() => api.post(`/applications/${id}/reject`, { remarks: rejectRemarks }), 'Application rejected.')}>Reject application</button>
-                  </div>
+                    onClick={run(() => api.post(`/applications/${id}/verify`), 'Verified. Eligibility & priority engine has run.')}>Verify application</button>
+                  {rejectBlock}
+                </Card>
+              )}
+              {canVerify && a.status === 'waitlisted' && (
+                <Card title="Forward to admin">
+                  <p className="mb-3 text-sm text-slate-500">The engine found this applicant eligible. When you are satisfied with the details and documents, forward the application to the admin for approval.</p>
+                  <textarea rows="2" className="input mt-0" placeholder="Note for the admin (optional)" value={forwardRemarks} onChange={(e) => setForwardRemarks(e.target.value)} />
+                  <button className="btn-primary mt-3 w-full" disabled={act.busy}
+                    onClick={run(() => api.post(`/applications/${id}/forward`, { remarks: forwardRemarks }), 'Forwarded to the admin for approval.')}>Forward to admin</button>
+                </Card>
+              )}
+              {canVerify && a.status === 'ineligible' && (
+                <Card title="Clerk check">
+                  <p className="text-sm text-slate-500">The engine found this applicant <b>not eligible</b> (see the checks on the left). It cannot be forwarded. Re-evaluate after a correction, or reject the application with a reason.</p>
+                  {rejectBlock}
                 </Card>
               )}
               {canVerify && ['verified', 'eligible', 'ineligible', 'waitlisted'].includes(a.status) && (
@@ -178,15 +196,26 @@ export default function ApplicationDetail() {
                   <button className="btn-ghost w-full" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/run-engine`), 'Engine re-evaluated.')}>Re-evaluate</button>
                 </Card>
               )}
-              {canDecide && ['verified', 'eligible', 'waitlisted'].includes(a.status) && (
-                <Card title="Estate Officer decision">
+              {canDecide && a.status === 'forwarded' && (
+                <Card title="Admin approval">
+                  {a.forward_remarks && (
+                    <div className="mb-3 rounded-lg bg-canvas px-3 py-2 text-sm text-rail">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Note from {a.forwarded_by_name ?? 'the clerk'}</span>
+                      <p className="mt-0.5">{a.forward_remarks}</p>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     <textarea rows="3" placeholder="Remarks (optional)" className="input mt-0" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
                     <div className="flex gap-2">
-                      <button className="btn-ok flex-1" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/decide`, { decision: 'approve', remarks }), 'Decision recorded.')}>Approve</button>
-                      <button className="btn-signal flex-1" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/decide`, { decision: 'reject', remarks }), 'Decision recorded.')}>Reject</button>
+                      <button className="btn-ok flex-1" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/decide`, { decision: 'approve', remarks }), 'Application approved.')}>Approve</button>
+                      <button className="btn-signal flex-1" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/decide`, { decision: 'reject', remarks }), 'Application rejected.')}>Reject</button>
                     </div>
                   </div>
+                </Card>
+              )}
+              {canDecide && !canVerify && ['submitted', 'verified', 'eligible', 'waitlisted', 'ineligible'].includes(a.status) && (
+                <Card title="Admin approval">
+                  <p className="text-sm text-slate-500">{a.status === 'ineligible' ? 'The engine found this applicant not eligible.' : 'Waiting for the clerk to verify this application and forward it to you.'}</p>
                 </Card>
               )}
               {allotment && (
@@ -202,9 +231,18 @@ export default function ApplicationDetail() {
               )}
               <Card title="Timeline">
                 <ol className="space-y-3 text-sm">
-                  <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rail" /><div><p className="text-ink">Submitted</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.applied_at)}</p></div></li>
-                  {a.verified_at && <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rail" /><div><p className="text-ink">Verified by clerk</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.verified_at)}</p></div></li>}
-                  {a.decided_at && <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-signal" /><div><p className="text-ink">Decided by Estate Officer</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.decided_at)}</p></div></li>}
+                  <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rail" /><div><p className="text-ink">Submitted by employee</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.applied_at)}</p></div></li>
+                  {a.verified_at && <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-rail" /><div><p className="text-ink">Verified by clerk{a.verified_by_name ? ` (${a.verified_by_name})` : ''}</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.verified_at)}</p></div></li>}
+                  {a.forwarded_at && <li className="flex gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><div><p className="text-ink">Forwarded to admin{a.forwarded_by_name ? ` by ${a.forwarded_by_name}` : ''}</p><p className="text-[11px] text-slate-400">{fmtDateTime(a.forwarded_at)}</p></div></li>}
+                  {a.decided_at && (
+                    <li className="flex gap-3">
+                      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${a.status === 'rejected' ? 'bg-signal' : 'bg-emerald-500'}`} />
+                      <div>
+                        <p className="text-ink">{a.status === 'rejected' ? 'Rejected' : 'Approved'}{a.decided_by_name ? ` by ${a.decided_by_name}` : ''}</p>
+                        <p className="text-[11px] text-slate-400">{fmtDateTime(a.decided_at)}</p>
+                      </div>
+                    </li>
+                  )}
                 </ol>
               </Card>
             </div>

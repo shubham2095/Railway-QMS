@@ -61,7 +61,7 @@ export async function mePayload(user) {
     badges.applications_to_verify = await scalar("SELECT COUNT(*) FROM quarter_applications WHERE status = 'submitted'");
   }
   if (user.hasPermission('application.decide')) {
-    badges.applications_to_decide = await scalar("SELECT COUNT(*) FROM quarter_applications WHERE status = 'waitlisted'");
+    badges.applications_to_decide = await scalar("SELECT COUNT(*) FROM quarter_applications WHERE status = 'forwarded'");
   }
   for (const [role, step] of Object.entries(STEP_FOR_ROLE)) {
     if (user.hasRole(role)) {

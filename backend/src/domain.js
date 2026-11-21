@@ -9,7 +9,7 @@ export const QUARTER_STATUSES = [
 ];
 
 export const APPLICATION_STATUSES = [
-  'submitted', 'verified', 'eligible', 'ineligible', 'waitlisted', 'approved', 'rejected', 'allotted', 'withdrawn',
+  'submitted', 'verified', 'eligible', 'ineligible', 'waitlisted', 'forwarded', 'approved', 'rejected', 'allotted', 'withdrawn',
 ];
 
 export const CATEGORIES = { SC: 'Scheduled Caste', ST: 'Scheduled Tribe', OBC: 'Other Backward Class', GENERAL: 'General' };

@@ -123,10 +123,14 @@ describe('authentication & RBAC', () => {
     }
   });
 
-  test('clerk cannot view reports / admin; admin cannot decide applications', async () => {
+  test('clerk cannot view reports / admin; only the admin side approves applications', async () => {
     assert.equal((await as.clerk.get('/api/reports')).status, 403);
     assert.equal((await as.clerk.get('/api/admin/users')).status, 403);
-    assert.equal((await as.admin.post('/api/applications/1/decide', { decision: 'approve' })).status, 403);
+    assert.equal((await as.clerk.post('/api/applications/1/decide', { decision: 'approve' })).status, 403, 'the clerk verifies and forwards, the admin approves');
+    assert.equal((await as.employee.post('/api/applications/1/decide', { decision: 'approve' })).status, 403);
+    // the admin holds the permission (so the request gets as far as the status rule: application 1 is not forwarded yet)
+    assert.equal((await as.admin.post('/api/applications/1/decide', { decision: 'approve' })).status, 422);
+    assert.equal((await as.admin.post('/api/applications/1/forward')).status, 403, 'the admin does not forward');
   });
 });
 
@@ -311,11 +315,13 @@ describe('quarter master', () => {
 describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () => {
   let quarterId, entryId, allotmentId, vacationId, ravi;
 
-  test('estate officer approves; clerk sees ranked suggestions for a vacant quarter', async () => {
-    const apps = await as.estate.get('/api/applications?status=waitlisted');
+  test('clerk forwards, admin approves; clerk sees ranked suggestions for a vacant quarter', async () => {
+    const apps = await as.clerk.get('/api/applications?status=waitlisted');
     ravi = apps.json.data.find((a) => a.employee_name === 'Ravi Kumar');
     assert.ok(ravi);
-    assert.equal((await as.estate.post(`/api/applications/${ravi.id}/decide`, { decision: 'approve', remarks: 'ok' })).status, 200);
+    assert.equal((await as.admin.post(`/api/applications/${ravi.id}/decide`, { decision: 'approve' })).status, 422, 'not forwarded yet');
+    assert.equal((await as.clerk.post(`/api/applications/${ravi.id}/forward`, { remarks: 'Documents checked' })).status, 200);
+    assert.equal((await as.admin.post(`/api/applications/${ravi.id}/decide`, { decision: 'approve', remarks: 'ok' })).status, 200);
     assert.equal((await as.employee.get(`/api/applications/${ravi.id}`)).json.application.status, 'approved');
 
     const quarters = await as.clerk.get('/api/quarters?type=III&status=vacant');
@@ -853,7 +859,7 @@ describe('employee self-signup', () => {
 });
 
 describe('clerk: verify employee profiles, then check applications', () => {
-  let sita, sitaProfileId;
+  let sita, sitaProfileId, waitlistedApp;
   before(async () => {
     sita = client();
     await sita.login('sita@example.com', 'longenough1');
@@ -1003,5 +1009,75 @@ describe('clerk: verify employee profiles, then check applications', () => {
     const a2 = await apply();
     assert.equal((await as.clerk.post(`/api/applications/${a2}/verify`)).status, 200);
     assert.equal((await sita.get(`/api/applications/${a2}`)).json.application.status, 'waitlisted');
+    waitlistedApp = a2;
+  });
+
+  test('the clerk forwards to the admin; the admin approves or rejects', async () => {
+    const fdApp = (type, colony = 'Railway Colony C') => {
+      const fd = new FormData(); fd.append('preferred_quarter_type', type); fd.append('colony_1', colony);
+      return sita.form('/api/applications', fd).then((r) => { assert.equal(r.status, 201, r.text); return r.json.id; });
+    };
+    const adminNotes = async (event) => (await as.admin.get('/api/notifications?channel=email')).json.data.filter((n) => n.event === event);
+
+    // ---- who may forward, and when ----
+    assert.equal((await sita.post(`/api/applications/${waitlistedApp}/forward`)).status, 403);
+    assert.equal((await as.estate.post(`/api/applications/${waitlistedApp}/forward`)).status, 403);
+    const fresh = await fdApp('II');
+    const early = await as.clerk.post(`/api/applications/${fresh}/forward`);
+    assert.equal(early.status, 422);
+    assert.match(early.json.errors.status[0], /Verify the application first/);
+
+    // ---- forward ----
+    const before = (await as.admin.get('/api/auth/me')).json.badges.applications_to_decide;
+    const fw = await as.clerk.post(`/api/applications/${waitlistedApp}/forward`, { remarks: 'Details and documents checked.' });
+    assert.equal(fw.status, 200, fw.text);
+    const a = (await as.admin.get(`/api/applications/${waitlistedApp}`)).json.application;
+    assert.equal(a.status, 'forwarded');
+    assert.equal(a.forwarded_by_name, 'Sunita Devi');
+    assert.equal(a.forward_remarks, 'Details and documents checked.');
+    assert.ok(a.forwarded_at && a.verified_by_name === 'Sunita Devi');
+    assert.equal((await as.clerk.post(`/api/applications/${waitlistedApp}/forward`)).status, 422, 'only once');
+    assert.equal((await as.clerk.post(`/api/applications/${waitlistedApp}/reject`, { remarks: 'too late' })).status, 422, 'the clerk cannot reject after forwarding');
+
+    // admin is told, so is the employee, and the admin sidebar badge counts it
+    assert.ok((await adminNotes('application_forwarded')).some((n) => n.user_name === 'System Admin' && n.message.includes('waiting for your approval')));
+    assert.ok((await adminNotes('application_forwarded_employee')).some((n) => n.user_name === 'Sita Verma'));
+    assert.equal((await as.admin.get('/api/auth/me')).json.badges.applications_to_decide, before + 1);
+    assert.equal((await as.clerk.get('/api/auth/me')).json.badges.applications_to_decide, 0, 'the clerk is not an approver');
+
+    // ---- the admin decides ----
+    assert.equal((await as.clerk.post(`/api/applications/${waitlistedApp}/decide`, { decision: 'approve' })).status, 403);
+    assert.equal((await as.admin.post(`/api/applications/${waitlistedApp}/decide`, { decision: 'maybe' })).status, 422);
+    const ok = await as.admin.post(`/api/applications/${waitlistedApp}/decide`, { decision: 'approve', remarks: 'Approved for allotment.' });
+    assert.equal(ok.status, 200, ok.text);
+    const done = (await sita.get(`/api/applications/${waitlistedApp}`)).json.application;
+    assert.equal(done.status, 'approved');
+    assert.equal(done.decided_by_name, 'System Admin');
+    assert.equal(done.remarks, 'Approved for allotment.');
+    assert.equal((await as.admin.post(`/api/applications/${waitlistedApp}/decide`, { decision: 'reject' })).status, 422, 'already decided');
+    assert.ok((await adminNotes('application_approved')).some((n) => n.user_name === 'Sita Verma'));
+
+    // staff making an offer can see which applicants the admin has approved
+    const q301 = (await as.clerk.get('/api/quarters?q=Q-301')).json.data[0];                 // Type-II, Colony C
+    const sugg = (await as.clerk.get(`/api/quarters/${q301.id}`)).json.suggestions;
+    assert.equal(sugg.find((e) => e.application.id === waitlistedApp).application.status, 'approved');
+
+    // ---- the admin rejects ----
+    const toReject = await fdApp('II');
+    assert.equal((await as.clerk.post(`/api/applications/${toReject}/verify`)).status, 200);
+    assert.equal((await as.clerk.post(`/api/applications/${toReject}/forward`)).status, 200);
+    const queued = () => as.clerk.get('/api/waiting-list?type=II&station=NDLS').then((r) => r.json.entries.some((e) => e.application.id === toReject));
+    assert.equal(await queued(), true);
+    assert.equal((await as.admin.post(`/api/applications/${toReject}/decide`, { decision: 'reject', remarks: 'Quarter not admissible for this grade.' })).status, 200);
+    assert.equal((await sita.get(`/api/applications/${toReject}`)).json.application.status, 'rejected');
+    assert.equal(await queued(), false, 'a rejected application leaves the waiting list');
+    assert.ok((await adminNotes('application_rejected')).some((n) => /not admissible/.test(n.message)));
+
+    // ---- an ineligible application cannot be forwarded, the clerk can reject it ----
+    const tooJunior = await fdApp('VI');
+    assert.equal((await as.clerk.post(`/api/applications/${tooJunior}/verify`)).status, 200);
+    assert.equal((await sita.get(`/api/applications/${tooJunior}`)).json.application.status, 'ineligible');
+    assert.equal((await as.clerk.post(`/api/applications/${tooJunior}/forward`)).status, 422);
+    assert.equal((await as.clerk.post(`/api/applications/${tooJunior}/reject`, { remarks: 'Not eligible for Type-VI.' })).status, 200);
   });
 });

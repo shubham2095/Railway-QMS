@@ -6,7 +6,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config/index.js';
-import { find, first, insert, query } from '../db.js';
+import { find, first, insert, query, transaction } from '../db.js';
 import { QUARTER_TYPES, APPLICATION_STATUSES } from '../domain.js';
 import { requirePermission } from '../middleware/auth.js';
 import * as applications from '../services/applications.js';
@@ -188,7 +188,9 @@ router.get('/:id', async (req, res) => {
   });
 });
 
-// POST /api/applications/:id/verify
+// POST /api/applications/:id/verify   { remarks? }
+// The clerk approves the application: the eligibility & priority engine runs and, when the applicant is
+// eligible, the application is forwarded to the admin automatically (with the clerk's optional note).
 router.post('/:id/verify', requirePermission('application.verify'), async (req, res) => {
   const app = await loadApplication(req.params.id);
   if (app.status !== 'submitted') throw new DomainError('Only submitted applications can be verified.', 'status');
@@ -197,11 +199,28 @@ router.post('/:id/verify', requirePermission('application.verify'), async (req, 
   if (owner?.verification_status !== 'verified') {
     throw new DomainError("Verify the employee's profile first (Employees → open the profile → Verify).", 'profile');
   }
-  await applications.verifyApplication(app, req.user);
-  res.json({ message: 'Verified. Eligibility & priority engine has run.' });
+  const { remarks } = validate(z.object({ remarks: optStr('remarks', 1000) }), req.body);
+
+  const status = await transaction(async () => {
+    const checked = await applications.verifyApplication(app, req.user);
+    if (checked.status !== 'waitlisted') return checked.status; // not eligible: stays with the clerk
+    await applications.forwardApplication(checked, req.user, remarks ?? null);
+    return 'forwarded';
+  });
+
+  const forwarded = status === 'forwarded';
+  res.json({
+    forwarded,
+    status,
+    message: forwarded
+      ? 'Approved. The application has been forwarded to the admin for approval.'
+      : 'Checked, but the applicant is not eligible, so the application was not forwarded. You can reject it or re-evaluate it.',
+  });
 });
 
-// POST /api/applications/:id/forward   { remarks? }  - the clerk passes a verified, eligible application to the admin
+// POST /api/applications/:id/forward   { remarks? }
+// Normally approving (verify) forwards automatically. This remains for an eligible application that has not been
+// forwarded yet - one approved before auto-forwarding existed, or made eligible again by a re-evaluation.
 router.post('/:id/forward', requirePermission('application.verify'), async (req, res) => {
   const app = await loadApplication(req.params.id);
   const { remarks } = validate(z.object({ remarks: optStr('remarks', 1000) }), req.body);

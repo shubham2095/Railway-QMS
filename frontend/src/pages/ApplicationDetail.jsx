@@ -27,7 +27,7 @@ export default function ApplicationDetail() {
 
   const run = (fn, message) => async () => {
     const ok = await act.run(fn);
-    if (ok) { flash.success(message); q.reload(); refresh(); }
+    if (ok) { flash.success(typeof message === 'function' ? message(ok) : message); q.reload(); refresh(); }
   };
 
   return (
@@ -170,15 +170,16 @@ export default function ApplicationDetail() {
                       <Link to={`/employees/${a.profile_id}`} className="font-semibold underline">Open profile</Link>
                     </div>
                   )}
-                  <p className="mb-3 text-sm text-slate-500">Check the employee&apos;s details and documents, then verify: the eligibility &amp; priority engine runs. If the applicant is eligible you can then forward the application to the admin.</p>
-                  <button className="btn-primary w-full" disabled={act.busy || a.profile_verification_status !== 'verified'}
-                    onClick={run(() => api.post(`/applications/${id}/verify`), 'Verified. Eligibility & priority engine has run.')}>Verify application</button>
+                  <p className="mb-3 text-sm text-slate-500">Check the employee&apos;s details and documents. When you approve, the eligibility &amp; priority engine runs and, if the applicant is eligible, the application goes to the admin <b>automatically</b>.</p>
+                  <textarea rows="2" className="input mt-0" placeholder="Note for the admin (optional)" value={forwardRemarks} onChange={(e) => setForwardRemarks(e.target.value)} />
+                  <button className="btn-primary mt-3 w-full" disabled={act.busy || a.profile_verification_status !== 'verified'}
+                    onClick={run(() => api.post(`/applications/${id}/verify`, { remarks: forwardRemarks }), (res) => res.message)}>Approve &amp; forward to admin</button>
                   {rejectBlock}
                 </Card>
               )}
               {canVerify && a.status === 'waitlisted' && (
                 <Card title="Forward to admin">
-                  <p className="mb-3 text-sm text-slate-500">The engine found this applicant eligible. When you are satisfied with the details and documents, forward the application to the admin for approval.</p>
+                  <p className="mb-3 text-sm text-slate-500">This application passed the eligibility engine but has not reached the admin yet (for example after a re-evaluation). Forward it for approval.</p>
                   <textarea rows="2" className="input mt-0" placeholder="Note for the admin (optional)" value={forwardRemarks} onChange={(e) => setForwardRemarks(e.target.value)} />
                   <button className="btn-primary mt-3 w-full" disabled={act.busy}
                     onClick={run(() => api.post(`/applications/${id}/forward`, { remarks: forwardRemarks }), 'Forwarded to the admin for approval.')}>Forward to admin</button>

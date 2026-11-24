@@ -12,7 +12,7 @@ function Badge({ n }) {
 
 export default function Dashboard() {
   useHeader('Dashboard', 'Estate overview and your quarter status');
-  const { badges } = useAuth();
+  const { badges, hasRole } = useAuth();
   const q = useApi('/dashboard');
 
   return (
@@ -72,50 +72,55 @@ export default function Dashboard() {
                       </Link>
                       <Link to="/quarters" className="block rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">Quarter inventory</Link>
                       <Link to="/waiting-list" className="block rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">Approved applicants</Link>
-                      <Link to="/vacations?mine_to_action=1" className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">
-                        <span>Clearances for me</span><Badge n={badges.clearances_for_me ?? 0} />
-                      </Link>
+                      {hasRole('quarter_clerk', 'estate_officer', 'electrical_dept', 'water_dept', 'accounts_dept') && (
+                        <Link to="/vacations?mine_to_action=1" className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">
+                          <span>Clearances for me</span><Badge n={badges.clearances_for_me ?? 0} />
+                        </Link>
+                      )}
                     </div>
                   </Card>
                 </div>
               </>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card title="My applications" actions={<Link to="/applications/new" className="rounded-md bg-rail px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink">New application</Link>}>
-                {d.my_applications.length === 0 && <p className="text-sm text-slate-400">You have not submitted any applications yet.</p>}
-                {d.my_applications.map((a) => (
-                  <Link key={a.id} to={`/applications/${a.id}`} className="-mx-2 flex items-center justify-between rounded-lg px-2 py-2.5 hover:bg-canvas">
-                    <div>
-                      <span className="mono text-sm font-medium text-ink">{a.reference_no}</span>
-                      <p className="text-xs text-slate-500">Type-{a.preferred_quarter_type} · {a.station} · {fmtDate(a.applied_at, '')}</p>
-                    </div>
-                    <div className="text-right">
-                      <Pill status={a.status} />
-                      {a.rank && <p className="mt-1 text-[11px] text-slate-400">Rank #{a.rank} · {a.priority_score} pts</p>}
-                    </div>
-                  </Link>
-                ))}
-              </Card>
+            {/* Only employees apply for quarters: the admin side has no "my applications" / "my quarters". */}
+            {hasRole('employee') && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card title="My applications" actions={<Link to="/applications/new" className="rounded-md bg-rail px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink">New application</Link>}>
+                  {d.my_applications.length === 0 && <p className="text-sm text-slate-400">You have not submitted any applications yet.</p>}
+                  {d.my_applications.map((a) => (
+                    <Link key={a.id} to={`/applications/${a.id}`} className="-mx-2 flex items-center justify-between rounded-lg px-2 py-2.5 hover:bg-canvas">
+                      <div>
+                        <span className="mono text-sm font-medium text-ink">{a.reference_no}</span>
+                        <p className="text-xs text-slate-500">Type-{a.preferred_quarter_type} · {a.station} · {fmtDate(a.applied_at, '')}</p>
+                      </div>
+                      <div className="text-right">
+                        <Pill status={a.status} />
+                        {a.rank && <p className="mt-1 text-[11px] text-slate-400">Rank #{a.rank} · {a.priority_score} pts</p>}
+                      </div>
+                    </Link>
+                  ))}
+                </Card>
 
-              <Card title="My quarters">
-                {d.my_allotments.length === 0 && <p className="text-sm text-slate-400">No quarter is currently allotted to you.</p>}
-                {d.my_allotments.map((al) => (
-                  <Link key={al.id} to={`/allotments/${al.id}`} className="-mx-2 flex items-center justify-between rounded-lg px-2 py-2.5 hover:bg-canvas">
-                    <div>
-                      <span className="mono text-sm font-medium text-ink">{al.quarter_number}</span>
-                      <p className="text-xs text-slate-500">{al.colony_name} · {al.allotment_order_no}</p>
+                <Card title="My quarters">
+                  {d.my_allotments.length === 0 && <p className="text-sm text-slate-400">No quarter is currently allotted to you.</p>}
+                  {d.my_allotments.map((al) => (
+                    <Link key={al.id} to={`/allotments/${al.id}`} className="-mx-2 flex items-center justify-between rounded-lg px-2 py-2.5 hover:bg-canvas">
+                      <div>
+                        <span className="mono text-sm font-medium text-ink">{al.quarter_number}</span>
+                        <p className="text-xs text-slate-500">{al.colony_name} · {al.allotment_order_no}</p>
+                      </div>
+                      <Pill status={al.status} />
+                    </Link>
+                  ))}
+                  {!d.has_profile && (
+                    <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                      Complete your <Link to="/profile/edit" className="font-semibold underline">employee profile</Link> to apply for a quarter.
                     </div>
-                    <Pill status={al.status} />
-                  </Link>
-                ))}
-                {!d.has_profile && (
-                  <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    Complete your <Link to="/profile/edit" className="font-semibold underline">employee profile</Link> to apply for a quarter.
-                  </div>
-                )}
-              </Card>
-            </div>
+                  )}
+                </Card>
+              </div>
+            )}
           </div>
         );
       }}

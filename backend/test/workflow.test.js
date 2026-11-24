@@ -138,6 +138,12 @@ describe('authentication & RBAC', () => {
     assert.equal((await as.admin.post('/api/quarters', body)).status, 403, 'only the super admin / clerk change the quarter master');
     assert.equal((await as.admin.get('/api/quarters')).status, 200, 'but the admin can see the quarters to offer one');
     assert.equal((await as.admin.get('/api/approval-queue')).status, 200);
+    // only employees apply for quarters (and keep an employee profile): the admin side never does
+    for (const who of ['admin', 'super', 'clerk']) {
+      const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
+      assert.equal((await as[who].form('/api/applications', fd)).status, 403, `${who} cannot apply for a quarter`);
+      assert.equal((await as[who].put('/api/profile', {})).status, 403, `${who} has no employee profile`);
+    }
     // the clerk no longer offers quarters; the super admin can do everything
     assert.equal((await as.clerk.post('/api/quarters/1/offer', { waiting_list_entry_id: 1 })).status, 403, 'the admin gives the quarter, not the clerk');
     assert.equal((await as.super.get('/api/admin/users')).status, 200);

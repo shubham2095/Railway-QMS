@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { config } from '../config/index.js';
 import { find, first, insert, query, transaction } from '../db.js';
 import { QUARTER_TYPES, APPLICATION_STATUSES } from '../domain.js';
-import { requirePermission } from '../middleware/auth.js';
+import { requirePermission, requireRole } from '../middleware/auth.js';
 import * as applications from '../services/applications.js';
 import { DomainError, HttpError, abortUnless, bool, idParam, optInt, optStr, reqEnum, reqStr, validate } from '../utils/http.js';
 import { parseJson } from '../utils/helpers.js';
@@ -107,7 +107,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/applications  (multipart: fields + documents[] + document_categories[])
-router.post('/', upload.array('documents', 10), async (req, res) => {
+router.post('/', requireRole('employee'), upload.array('documents', 10), async (req, res) => {
   const files = req.files ?? [];
   try {
     const profile = req.user.profile;

@@ -88,7 +88,7 @@ export default function App() {
         <Route path="/profile/edit" element={<ProfileEdit />} />
 
         <Route path="/applications" element={<Applications />} />
-        <Route path="/applications/new" element={<ApplicationForm />} />
+        <Route path="/applications/new" element={<Guard roles={['employee']}><ApplicationForm /></Guard>} />
         <Route path="/applications/:id" element={<ApplicationDetail />} />
 
         <Route path="/employees" element={<Guard roles={STAFF}><Employees /></Guard>} />

@@ -100,7 +100,7 @@ export default function Layout() {
               <NavItem to="/vacations" icon="exit" badge={badges.clearances_for_me ?? 0} onClick={close}>Vacations</NavItem>
               <NavItem to="/certificates" icon="seal" onClick={close}>Certificates</NavItem>
               <NavItem to="/notifications" icon="bell" onClick={close}>Notifications</NavItem>
-              <NavItem to="/profile" icon="user" onClick={close}>My Profile</NavItem>
+              <NavItem to="/profile" icon="user" onClick={close}>{hasRole('employee') ? 'My Profile' : 'My Account'}</NavItem>
             </Section>
 
             {hasRole('quarter_clerk', 'estate_officer', 'admin', 'super_admin') && (

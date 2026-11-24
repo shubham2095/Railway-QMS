@@ -1,5 +1,5 @@
 import { createApp } from './app.js';
-import { bootstrap } from './bootstrap.js';
+import { bootstrap, importData } from './bootstrap.js';
 import { config } from './config/index.js';
 import { pool } from './db.js';
 import { state } from './state.js';
@@ -43,4 +43,7 @@ function fail(code, lines) {
 
   state.ready = true;
   console.log('[rqms] Ready.');
+
+  // Master data is loaded in the background: a slow or failing import never takes the site down.
+  importData().catch((err) => console.error(`[import] Master data import failed: ${err.message}`));
 })();

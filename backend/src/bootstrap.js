@@ -41,7 +41,9 @@ async function withBootstrapLock(fn) {
  *   2. schema migrations for databases created by an older version.
  */
 export async function bootstrap() {
+  console.log('[bootstrap] Waiting for the start-up lock...');
   await withBootstrapLock(async () => {
+    console.log('[bootstrap] Lock acquired - checking the schema.');
     if (config.bootstrap.enabled) await runBootstrap();
     const applied = await runMigrations();
     if (applied.length) console.log(`[migrate] Applied: ${applied.join(', ')}`);
@@ -49,10 +51,23 @@ export async function bootstrap() {
     // new permission reaches existing installs too. (There is no screen that edits permissions by hand.)
     const [hasUsers] = await query("SHOW TABLES LIKE 'users'");
     if (hasUsers) await seedRolesAndPermissions();
-    if (config.bootstrap.importQuarters && hasUsers) {
-      for (const r of await importAllQuarterMasterData()) console.log(`[quarters] Type ${r.type}: ${r.total} quarters synced from master data.`);
-      for (const r of await importWaitingListData()) console.log(`[waitlist] ${r.file}: ${r.total} requests synced.`);
-    }
+    console.log('[bootstrap] Schema and permissions are up to date.');
+  });
+}
+
+/**
+ * Optional master-data import (IMPORT_QUARTERS=true): quarters + the old waiting lists. Idempotent. It runs AFTER the
+ * server is ready (the site must never wait for it) and under the same lock, so several instances do not import at once.
+ */
+export async function importData() {
+  if (!config.bootstrap.importQuarters) return;
+  await withBootstrapLock(async () => {
+    const [hasQuarters] = await query("SHOW TABLES LIKE 'quarters'");
+    if (!hasQuarters) return;
+    const t0 = Date.now();
+    for (const r of await importAllQuarterMasterData()) console.log(`[quarters] Type ${r.type}: ${r.total} quarters synced from master data.`);
+    for (const r of await importWaitingListData()) console.log(`[waitlist] ${r.file}: ${r.total} requests synced.`);
+    console.log(`[import] Master data synced in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
   });
 }
 

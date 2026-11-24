@@ -167,3 +167,8 @@ Gazetted officers' priority lists (Transit flat, Type-IV, Type-IV Spl, Type-V, T
 `python3 -I database/data/convert_gazetted.py database/data <priority.xlsx>` -> `waitlist-GAZETTED.json`. They keep the
 sheet's own order, the places of registration, present flat, contact and remarks; where a "date of refusal" is given,
 the priority counts from that date and the original registration date is kept in the remarks.
+
+More quarter types: `python3 -I database/data/convert_quarters.py database/data <Master_Data.xlsx>` turns every sheet named
+`Master Data-<TYPE>` into `quarters-type<TYPE>.json` (commit it, redeploy). "II(Peela)" quarters are Type II with "Peela" in
+the remarks; office / union / barrack quarters are loaded as *reserved*, unsafe / dismantled / sealed ones as *under maintenance*.
+A quarter is identified by station + colony + number + type, so Type I and Type II may share a number in the same colony.

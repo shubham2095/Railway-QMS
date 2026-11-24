@@ -118,6 +118,17 @@ const MIGRATIONS = [
       return true;
     },
   },
+  {
+    // The same colony may have a Type-I and a Type-II quarter with the same number: the type is part of the identity now.
+    // (Prefix lengths keep the key under InnoDB's 3072-byte limit.)
+    name: 'quarters unique key includes the type',
+    async run() {
+      if (await indexExists('quarters', 'quarters_unique_per_type')) return false;
+      const drop = (await indexExists('quarters', 'quarters_station_colony_number_unique')) ? 'DROP INDEX quarters_station_colony_number_unique, ' : '';
+      await query(`ALTER TABLE quarters ${drop}ADD UNIQUE KEY quarters_unique_per_type (station(100), colony_name(100), quarter_number(100), quarter_type)`);
+      return true;
+    },
+  },
   addColumn('quarters', 'pool', 'VARCHAR(50) NULL AFTER floor'),
   addColumn('quarters', 'remarks', 'VARCHAR(500) NULL AFTER pool'),
   addColumn('employee_profiles', 'pf_number', 'VARCHAR(50) NULL AFTER employee_id'),

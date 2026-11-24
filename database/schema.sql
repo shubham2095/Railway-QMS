@@ -129,7 +129,7 @@ CREATE TABLE quarters (
   current_occupant_id BIGINT UNSIGNED NULL,
   created_at          DATETIME NULL,
   updated_at          DATETIME NULL,
-  UNIQUE KEY quarters_station_colony_number_unique (station, colony_name, quarter_number),
+  UNIQUE KEY quarters_unique_per_type (station(100), colony_name(100), quarter_number(100), quarter_type),
   KEY quarters_type_station_status_index (quarter_type, station, status),
   CONSTRAINT quarters_occupant_fk FOREIGN KEY (current_occupant_id) REFERENCES employee_profiles (id) ON DELETE SET NULL
 ) ENGINE=InnoDB;

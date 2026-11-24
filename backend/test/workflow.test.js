@@ -21,6 +21,7 @@ const { seedAll } = await import('../src/scripts/seed.js');
 const { pool } = await import('../src/db.js');
 await seedAll();
 
+const withdrawOpen = () => pool.query("UPDATE quarter_applications SET status = 'withdrawn' WHERE status IN ('submitted','verified','eligible','waitlisted','forwarded','approved')");
 let server;
 let base;
 
@@ -128,16 +129,28 @@ describe('authentication & RBAC', () => {
     assert.equal((await as.clerk.get('/api/admin/users')).status, 403);
     assert.equal((await as.clerk.post('/api/applications/1/decide', { decision: 'approve' })).status, 403, 'the clerk verifies and forwards, the admin approves');
     assert.equal((await as.employee.post('/api/applications/1/decide', { decision: 'approve' })).status, 403);
-    // the admin holds the permission (so the request gets as far as the status rule: application 1 is not forwarded yet)
-    assert.equal((await as.admin.post('/api/applications/1/decide', { decision: 'approve' })).status, 422);
     assert.equal((await as.admin.post('/api/applications/1/forward')).status, 403, 'the admin does not forward');
   });
 });
 
+describe('one open application per employee', () => {
+  test('an employee cannot apply again while an application is in progress', async () => {
+    // Ravi (demo employee) already has an application in the admin line
+    const fd = new FormData(); fd.append('preferred_quarter_type', 'IV'); fd.append('colony_1', 'Railway Colony B');
+    const r = await as.employee.form('/api/applications', fd);
+    assert.equal(r.status, 422);
+    assert.match(r.json.message, /already have an application in progress/);
+    assert.equal((await as.employee.get('/api/applications')).json.data.length, 1);
+  });
+});
+
 describe('seeded data & priority engine', () => {
-  test('demo applications are waitlisted with the expected score and ranking', async () => {
-    const wl = await as.clerk.get('/api/waiting-list');
+  test('demo applications are in the admin approval line with the expected score and ranking', async () => {
+    assert.equal((await as.clerk.get('/api/approval-queue')).status, 403, 'only the admin sees the approval queue');
+    assert.equal((await as.employee.get('/api/approval-queue')).status, 403);
+    const wl = await as.admin.get('/api/approval-queue?type=III');
     assert.equal(wl.status, 200);
+    assert.equal(wl.json.vacant_quarters, 2);
     assert.equal(wl.json.entries.length, 2);
     const [first, second] = wl.json.entries;
     // Ravi: essential 50 + OBC 10 + seniority 10 = 70 ; Meena: SC 20 + medical 30 + seniority 15 (cap) = 65
@@ -149,18 +162,16 @@ describe('seeded data & priority engine', () => {
     assert.equal(second.rank, 2);
   });
 
-  test('colony preferences: shown on the waiting list and matched against the quarter being offered', async () => {
+  test('colony preferences: shown on the approval queue and matched against the quarter being offered', async () => {
     // Ravi chose [Colony A, Colony B]; Meena chose [Colony B, Colony A]
-    const wl = (await as.clerk.get('/api/waiting-list')).json.entries;
+    const wl = (await as.admin.get('/api/approval-queue?type=III')).json.entries;
     const prefs = (name) => wl.find((e) => e.application.employee_name === name).application.colony_preferences;
     assert.deepEqual(prefs('Ravi Kumar'), [{ priority: 1, colony_name: 'Railway Colony A' }, { priority: 2, colony_name: 'Railway Colony B' }]);
     assert.deepEqual(prefs('Meena Iyer').map((p) => p.colony_name), ['Railway Colony B', 'Railway Colony A']);
 
+    // Nobody is approved yet, so there is nobody to offer a quarter to.
     const q101 = (await as.clerk.get('/api/quarters?q=Q-101')).json.data[0];   // a Type-III quarter in Colony A
-    const sugg = (await as.clerk.get(`/api/quarters/${q101.id}`)).json.suggestions;
-    assert.equal(sugg.find((e) => e.application.employee_name === 'Ravi Kumar').colony_choice, 1, "Colony A is Ravi's 1st choice");
-    assert.equal(sugg.find((e) => e.application.employee_name === 'Meena Iyer').colony_choice, 2, "Colony A is Meena's 2nd choice");
-    assert.equal(sugg[0].application.employee_name, 'Ravi Kumar', 'ranking is still by priority score, preferences are shown alongside');
+    assert.equal((await as.clerk.get(`/api/quarters/${q101.id}`)).json.suggestions.length, 0);
   });
 
   test('application detail exposes eligibility checks and breakdown', async () => {
@@ -168,7 +179,7 @@ describe('seeded data & priority engine', () => {
     assert.equal(list.json.data.length, 1);
     const detail = await as.employee.get(`/api/applications/${list.json.data[0].id}`);
     const a = detail.json.application;
-    assert.equal(a.status, 'waitlisted');
+    assert.equal(a.status, 'forwarded');
     assert.equal(a.eligibility_result.eligible, true);
     assert.deepEqual(a.priority_breakdown, { essential_service: 50, medical_ground: 0, category: 10, seniority: 10, application_age: 0 });
     // other employee cannot read it
@@ -315,21 +326,46 @@ describe('quarter master', () => {
 describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () => {
   let quarterId, entryId, allotmentId, vacationId, ravi;
 
-  test('clerk forwards, admin approves; clerk sees ranked suggestions for a vacant quarter', async () => {
-    const apps = await as.clerk.get('/api/applications?status=waitlisted');
-    ravi = apps.json.data.find((a) => a.employee_name === 'Ravi Kumar');
-    assert.ok(ravi);
-    assert.equal((await as.admin.post(`/api/applications/${ravi.id}/decide`, { decision: 'approve' })).status, 422, 'not forwarded yet');
-    assert.equal((await as.clerk.post(`/api/applications/${ravi.id}/forward`, { remarks: 'Documents checked' })).status, 200);
-    assert.equal((await as.admin.post(`/api/applications/${ravi.id}/decide`, { decision: 'approve', remarks: 'ok' })).status, 200);
-    assert.equal((await as.employee.get(`/api/applications/${ravi.id}`)).json.application.status, 'approved');
+  test('admin approves the top of the line in bulk; the line moves up; the clerk can then offer only to approved applicants', async () => {
+    const line = (await as.admin.get('/api/approval-queue?type=III')).json;
+    assert.equal(line.entries.length, 2);
+    ravi = { id: line.entries[0].application.id };
+    const meena = line.entries[1].application.id;
 
+    // guards: only the admin approves; nothing outside the line; nothing empty
+    assert.equal((await as.clerk.post('/api/approval-queue/approve', { application_ids: [ravi.id] })).status, 403);
+    assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [] })).status, 422);
+    assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [ravi.id, 999999] })).status, 422);
+    assert.equal((await as.employee.get(`/api/applications/${ravi.id}`)).json.application.status, 'forwarded', 'a failed batch changes nothing');
+
+    // the clerk cannot offer a quarter to someone the admin has not approved
     const quarters = await as.clerk.get('/api/quarters?type=III&status=vacant');
     quarterId = quarters.json.data.find((q) => q.quarter_number === 'Q-101').id;
+    const entry = (await as.admin.get('/api/approval-queue?type=III')).json.entries[0];
+    const early = await as.clerk.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entry.id });
+    assert.equal(early.status, 422);
+    assert.match(early.json.message, /approved/);
+
+    // top 1 of 2 approved: Ravi leaves the line, Meena moves to rank 1
+    const done = await as.admin.post('/api/approval-queue/approve', { application_ids: [ravi.id], remarks: 'top of the line' });
+    assert.equal(done.status, 200, done.text);
+    assert.equal(done.json.approved, 1);
+    assert.equal((await as.employee.get(`/api/applications/${ravi.id}`)).json.application.status, 'approved');
+    const after = (await as.admin.get('/api/approval-queue?type=III')).json;
+    assert.equal(after.entries.length, 1);
+    assert.equal(after.entries[0].rank, 1, 'the line moved up');
+    assert.equal(after.entries[0].application.id, meena);
+    assert.equal(after.approved_waiting, 1);
+    assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [ravi.id] })).status, 422, 'already approved');
+
     const q = await as.clerk.get(`/api/quarters/${quarterId}`);
-    assert.equal(q.json.suggestions.length, 2);
+    assert.equal(q.json.suggestions.length, 1);
     assert.equal(q.json.suggestions[0].application.employee_name, 'Ravi Kumar');
+    assert.equal(q.json.suggestions[0].colony_choice, 1, "Colony A is Ravi's 1st choice");
     entryId = q.json.suggestions[0].id;
+
+    const wl = (await as.clerk.get('/api/waiting-list?type=III')).json;
+    assert.equal(wl.entries.length, 1, 'the clerk list shows approved applicants only');
   });
 
   test('offer: guards + success creates allotment order, flips statuses, re-ranks queue', async () => {
@@ -345,7 +381,7 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     assert.equal((await as.clerk.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId })).status, 422);
 
     // Ravi leaves the queue; Meena is now rank 1
-    const wl = await as.clerk.get('/api/waiting-list');
+    const wl = await as.admin.get('/api/approval-queue?type=III');
     assert.equal(wl.json.entries.length, 1);
     assert.equal(wl.json.entries[0].rank, 1);
     assert.equal((await as.employee.get(`/api/applications/${ravi.id}`)).json.application.status, 'allotted');
@@ -389,6 +425,8 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
   test('a rejected offer releases the quarter back to vacant', async () => {
     // Meena applies pipeline: offer Q-102 to her and reject
     const q102 = (await as.clerk.get('/api/quarters?q=Q-102')).json.data[0];
+    const meenaId = (await as.admin.get('/api/approval-queue?type=III')).json.entries[0].application.id;
+    assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [meenaId] })).status, 200);
     const sugg = (await as.clerk.get(`/api/quarters/${q102.id}`)).json.suggestions;
     assert.equal(sugg.length, 1);
     const offer = await as.clerk.post(`/api/quarters/${q102.id}/offer`, { waiting_list_entry_id: sugg[0].id });
@@ -490,6 +528,7 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     assert.equal(detail.status, 'forwarded', 'eligible + verified by the clerk -> forwarded to the admin automatically');
     assert.equal(detail.priority_score, 5); // GENERAL 0 + seniority 5
     assert.equal(detail.rank, 1);
+    assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [app.json.id] })).status, 200);
 
     const q102 = (await as.clerk.get('/api/quarters?q=Q-102')).json.data[0];
     const sugg = (await as.clerk.get(`/api/quarters/${q102.id}`)).json.suggestions;
@@ -762,7 +801,8 @@ describe('employee self-signup', () => {
   test('applying with up to 3 colonies in priority order', async () => {
     const c = client();
     await c.login('sita@example.com', 'longenough1');
-    const apply = (fields) => {
+    const apply = async (fields) => {
+      await withdrawOpen(); // one open application per employee: step aside for the next one
       const fd = new FormData(); fd.append('preferred_quarter_type', 'III');
       for (const [k, v] of Object.entries(fields)) fd.append(k, v);
       return c.form('/api/applications', fd);
@@ -799,8 +839,9 @@ describe('employee self-signup', () => {
 
     // after verification the applicant joins the queue with the choices visible to staff
     await verifyProfileOf('EMP7777');
-    assert.equal((await as.clerk.post(`/api/applications/${ok.json.id}/verify`)).status, 200);
-    const entry = (await as.clerk.get('/api/waiting-list?type=III&station=NDLS')).json.entries.find((e) => e.application.id === ok.json.id);
+    const fin = await apply({ colony_1: 'Saket', colony_2: 'Hauz Khas', colony_3: 'Connaught Place' });
+    assert.equal((await as.clerk.post(`/api/applications/${fin.json.id}/verify`)).status, 200);
+    const entry = (await as.admin.get('/api/approval-queue?type=III')).json.entries.find((e) => e.application.id === fin.json.id);
     assert.deepEqual(entry.application.colony_preferences.map((p) => p.colony_name), ['Saket', 'Hauz Khas', 'Connaught Place']);
   });
 
@@ -976,6 +1017,7 @@ describe('clerk: verify employee profiles, then check applications', () => {
 
   test('applications: the clerk can only proceed once the profile is verified; the clerk can also reject', async () => {
     const apply = async () => {
+      await withdrawOpen();
       const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
       const r = await sita.form('/api/applications', fd);
       assert.equal(r.status, 201, r.text);
@@ -1013,7 +1055,8 @@ describe('clerk: verify employee profiles, then check applications', () => {
   });
 
   test('the clerk approves -> forwarded to the admin automatically; the admin approves or rejects', async () => {
-    const fdApp = (type, colony = 'Railway Colony C') => {
+    const fdApp = async (type, colony = 'Railway Colony C') => {
+      await withdrawOpen();
       const fd = new FormData(); fd.append('preferred_quarter_type', type); fd.append('colony_1', colony);
       return sita.form('/api/applications', fd).then((r) => { assert.equal(r.status, 201, r.text); return r.json.id; });
     };
@@ -1073,11 +1116,11 @@ describe('clerk: verify employee profiles, then check applications', () => {
     // ---- the admin rejects ----
     const toReject = await fdApp('II');
     assert.equal((await as.clerk.post(`/api/applications/${toReject}/verify`)).json.forwarded, true);
-    const queued = () => as.clerk.get('/api/waiting-list?type=II&station=NDLS').then((r) => r.json.entries.some((e) => e.application.id === toReject));
+    const queued = () => as.admin.get('/api/approval-queue?type=II').then((r) => r.json.entries.some((e) => e.application.id === toReject));
     assert.equal(await queued(), true);
     assert.equal((await as.admin.post(`/api/applications/${toReject}/decide`, { decision: 'reject', remarks: 'Quarter not admissible for this grade.' })).status, 200);
     assert.equal((await sita.get(`/api/applications/${toReject}`)).json.application.status, 'rejected');
-    assert.equal(await queued(), false, 'a rejected application leaves the waiting list');
+    assert.equal(await queued(), false, 'a rejected application leaves the line');
     assert.ok((await adminNotes('application_rejected')).some((n) => /not admissible/.test(n.message)));
 
     // ---- an ineligible application cannot be forwarded, the clerk can reject it ----

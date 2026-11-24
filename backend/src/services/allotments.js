@@ -7,10 +7,10 @@ import { generateCertificate } from './certificates.js';
 import { notify } from './notifications.js';
 import * as waitingList from './waitingList.js';
 
-/** Module 6 - suggest the matching queue for a vacant quarter. */
+/** Module 6 - applicants the admin has approved for this quarter type: only they can be offered a quarter. */
 export async function suggestionsFor(quarter) {
   if (quarter.status !== 'vacant') return [];
-  return waitingList.queue(quarter.quarter_type, quarter.station);
+  return waitingList.queue(quarter.quarter_type, 'approved');
 }
 
 /** Offer a quarter to a waiting-list applicant (Clerk / Estate Officer action). */
@@ -29,6 +29,9 @@ export function offerQuarter(quarterId, entryId, approver) {
     }
 
     const application = await find('quarter_applications', entry.quarter_application_id);
+    if (application.status !== 'approved') {
+      throw new DomainError('A quarter can be offered only to an applicant the admin has approved.', 'waiting_list_entry_id');
+    }
     const profile = await find('employee_profiles', application.employee_profile_id);
     const user = await first('SELECT id, name, email, mobile FROM users WHERE id = ?', [profile.user_id]);
 

@@ -95,7 +95,7 @@ export default function Layout() {
             <>
             <Section title="Workspace">
               <NavItem to="/dashboard" icon="grid" onClick={close}>Dashboard</NavItem>
-              <NavItem to="/applications" icon="doc" badge={verifyBadge + decideBadge} onClick={close}>Applications</NavItem>
+              <NavItem to="/applications" icon="doc" badge={verifyBadge} onClick={close}>Applications</NavItem>
               <NavItem to="/allotments" icon="key" onClick={close}>Allotments</NavItem>
               <NavItem to="/vacations" icon="exit" badge={badges.clearances_for_me ?? 0} onClick={close}>Vacations</NavItem>
               <NavItem to="/certificates" icon="seal" onClick={close}>Certificates</NavItem>
@@ -107,7 +107,8 @@ export default function Layout() {
               <Section title="Estate Office">
                 <NavItem to="/employees" icon="users" badge={badges.profiles_to_verify ?? 0} onClick={close}>Employees</NavItem>
                 <NavItem to="/quarters" icon="building" onClick={close}>Quarter Master</NavItem>
-                <NavItem to="/waiting-list" icon="list" onClick={close}>Waiting List</NavItem>
+                {hasPermission('application.decide') && <NavItem to="/approval-queue" icon="list" badge={decideBadge} onClick={close}>Approval Queue</NavItem>}
+                <NavItem to="/waiting-list" icon="list" onClick={close}>Approved Applicants</NavItem>
                 <NavItem to="/retirements" icon="clock" onClick={close}>Retirement</NavItem>
                 {hasPermission('reports.view') && <NavItem to="/reports" icon="chart" onClick={close}>Reports &amp; MIS</NavItem>}
               </Section>

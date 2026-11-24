@@ -93,14 +93,14 @@ export default function QuarterDetail() {
             </div>
 
             <div className="space-y-6">
-              <Card title="Allotment suggestions" subtitle="Module 6 — top of the matching queue">
+              <Card title="Allotment suggestions" subtitle="Admin-approved applicants, best priority first">
                 <ErrorBanner error={offer.error} />
                 {quarter.status !== 'vacant' ? (
                   <div className="rounded-lg bg-canvas px-4 py-3 text-sm text-slate-500">
                     This quarter is <span className="font-medium">{titleCase(quarter.status)}</span>. Suggestions appear when it is vacant.
                   </div>
                 ) : suggestions.length === 0 ? (
-                  <p className="text-sm text-slate-400">No eligible applicants on the waiting list for {quarterTypeLabel(quarter.quarter_type)} at {quarter.station}.</p>
+                  <p className="text-sm text-slate-400">No admin-approved applicants are waiting for {quarterTypeLabel(quarter.quarter_type)}. The admin approves applicants from the Approval Queue.</p>
                 ) : (
                   <div className="space-y-3">
                     {suggestions.map((e) => (

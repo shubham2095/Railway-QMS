@@ -77,7 +77,7 @@ export default function Dashboard() {
                         <span>Review applications</span><Badge n={review} />
                       </Link>
                       <Link to="/quarters" className="block rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">Quarter inventory</Link>
-                      <Link to="/waiting-list" className="block rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">Waiting list</Link>
+                      <Link to="/waiting-list" className="block rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">Approved applicants</Link>
                       <Link to="/vacations?mine_to_action=1" className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">
                         <span>Clearances for me</span><Badge n={badges.clearances_for_me ?? 0} />
                       </Link>

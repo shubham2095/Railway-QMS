@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'node:url';
 import { first, insert, pool, query, transaction, update } from '../db.js';
 import { fmtDate, nowStr } from '../utils/dates.js';
-import { runEngine, submitApplication } from '../services/applications.js';
+import { forwardApplication, runEngine, submitApplication } from '../services/applications.js';
 
 /** insert-or-update by a "where" object (Laravel updateOrCreate). Returns the row id. */
 async function upsert(table, where, data) {
@@ -187,7 +187,10 @@ export async function seedDemo(roleIds) {
     const user = await first('SELECT id, name, email, mobile FROM users WHERE id = ?', [userId]);
     const profile = await first('SELECT * FROM employee_profiles WHERE id = ?', [profileId]);
     const app = await submitApplication(profile, user, { preferred_quarter_type: 'III', ...data });
-    await runEngine(app.id);
+    const checked = await runEngine(app.id);
+    // As if the clerk had approved it: the application is with the admin, in the line for approval.
+    const clerk = await first("SELECT id FROM users WHERE email = 'clerk@rqms.test'");
+    if (checked.status === 'waitlisted' && clerk) await forwardApplication(checked, clerk, null);
   };
   await applyFor(employee.userId, employee.profileId, { family_size: 4, medical_ground: false, colonies: ['Railway Colony A', 'Railway Colony B'] });
   await applyFor(user2, profile2, { family_size: 3, medical_ground: true, colonies: ['Railway Colony B', 'Railway Colony A'] });

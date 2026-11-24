@@ -25,6 +25,7 @@ import quartersRouter from './routes/quarters.js';
 import retirementsRouter from './routes/retirements.js';
 import vacationsRouter from './routes/vacations.js';
 import waitingListRouter from './routes/waitingList.js';
+import approvalQueueRouter from './routes/approvalQueue.js';
 
 export function createApp() {
   const app = express();
@@ -84,6 +85,7 @@ export function createApp() {
   api.use('/colonies', coloniesRouter);
   api.use('/documents', documentsRouter);
   api.use('/waiting-list', waitingListRouter);
+  api.use('/approval-queue', approvalQueueRouter);
   api.use('/quarters', quartersRouter);
   api.use('/', allotmentsRouter); // /allotments..., /quarters/:id/offer
   api.use('/vacations', vacationsRouter);

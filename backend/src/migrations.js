@@ -81,6 +81,17 @@ const COLONY_PREFERENCES_DDL = `CREATE TABLE application_colony_preferences (
 
 // Order matters: later entries may reference columns added by earlier ones (AFTER ...).
 const MIGRATIONS = [
+  {
+    // The line is now one per quarter type (not per station): unify existing entries and re-rank.
+    name: 'waiting_list_entries one queue per type',
+    async run() {
+      const moved = await query('UPDATE waiting_list_entries SET station = NULL WHERE station IS NOT NULL');
+      if (moved.affectedRows === 0) return false;
+      const { reRank } = await import('./services/waitingList.js');
+      for (const row of await query('SELECT DISTINCT quarter_type FROM waiting_list_entries')) await reRank(row.quarter_type);
+      return true;
+    },
+  },
   addColumn('quarters', 'pool', 'VARCHAR(50) NULL AFTER floor'),
   addColumn('quarters', 'remarks', 'VARCHAR(500) NULL AFTER pool'),
   addColumn('employee_profiles', 'pf_number', 'VARCHAR(50) NULL AFTER employee_id'),

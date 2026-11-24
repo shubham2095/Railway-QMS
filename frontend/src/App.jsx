@@ -29,6 +29,7 @@ import VacationDetail from './pages/VacationDetail.jsx';
 import VacationForm from './pages/VacationForm.jsx';
 import Vacations from './pages/Vacations.jsx';
 import WaitingList from './pages/WaitingList.jsx';
+import ApprovalQueue from './pages/ApprovalQueue.jsx';
 
 function Forbidden() {
   return (
@@ -91,6 +92,7 @@ export default function App() {
 
         <Route path="/employees" element={<Guard roles={STAFF}><Employees /></Guard>} />
         <Route path="/employees/:id" element={<Guard roles={STAFF}><EmployeeDetail /></Guard>} />
+        <Route path="/approval-queue" element={<Guard permission="application.decide"><ApprovalQueue /></Guard>} />
         <Route path="/waiting-list" element={<Guard roles={STAFF}><WaitingList /></Guard>} />
 
         <Route path="/quarters" element={<Guard roles={STAFF}><Quarters /></Guard>} />

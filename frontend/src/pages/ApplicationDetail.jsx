@@ -118,7 +118,7 @@ export default function ApplicationDetail() {
                   <div className="mb-3 flex items-baseline gap-2">
                     <span className="font-display text-3xl font-bold text-ink">{a.priority_score}</span>
                     <span className="text-sm text-slate-400">total points</span>
-                    {a.rank && <span className="ml-auto rounded-full bg-canvas px-3 py-1 text-xs font-semibold text-rail ring-1 ring-edge">Waiting rank #{a.rank}</span>}
+                    {a.rank && <span className="ml-auto rounded-full bg-canvas px-3 py-1 text-xs font-semibold text-rail ring-1 ring-edge">Position in line #{a.rank}</span>}
                   </div>
                   <table className="w-full text-sm">
                     <tbody>

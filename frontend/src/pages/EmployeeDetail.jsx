@@ -1,14 +1,25 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import { Async, Card, Dl, Pill } from '../components/ui.jsx';
+import { Async, Card, Dl, ErrorBanner, Pill } from '../components/ui.jsx';
+import { api } from '../lib/api.js';
+import { useAuth } from '../lib/auth.jsx';
 import { CATEGORIES, SERVICE_TYPES, quarterTypeLabel } from '../lib/constants.js';
 import { fmtDate, inr } from '../lib/format.js';
-import { useApi } from '../lib/hooks.js';
+import { useAction, useApi } from '../lib/hooks.js';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
   const q = useApi(`/employees/${id}`);
   useHeader(q.data ? q.data.user.name : 'Employee', 'Employee profile');
+  const { hasRole } = useAuth();
+  const navigate = useNavigate();
+  const act = useAction();
+
+  const remove = async (user) => {
+    if (!window.confirm(`Delete employee ${user.name} (${user.email}) permanently?\n\nTheir login, profile, applications and documents are removed. This cannot be undone.`)) return;
+    const res = await act.run(() => api.del(`/admin/users/${user.id}`));
+    if (res) navigate('/employees', { state: { flash: res.message } });
+  };
 
   return (
     <Async q={q}>
@@ -67,6 +78,14 @@ export default function EmployeeDetail() {
             </div>
 
             <div className="space-y-6">
+              {hasRole('super_admin') && (
+                <Card title="Delete employee">
+                  <ErrorBanner error={act.error} />
+                  <p className="mb-3 text-sm text-slate-500">Removes this employee&apos;s login, profile, applications and documents for good. Not possible while they hold a quarter.</p>
+                  <button className="btn-signal w-full" disabled={act.busy} onClick={() => remove(user)}>Delete employee</button>
+                </Card>
+              )}
+
               <Card title="Applications">
                 {applications.length === 0 ? <p className="text-sm text-slate-400">No applications yet.</p> : (
                   <div className="space-y-2">

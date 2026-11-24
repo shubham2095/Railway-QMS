@@ -217,6 +217,55 @@ describe('seeded data & priority engine', () => {
   });
 });
 
+describe('super admin deletes an employee', () => {
+  test('only employee accounts, only the super admin, never while a quarter is held; everything of theirs goes', async () => {
+    const roles = (await as.super.get('/api/admin/roles')).json.roles;
+    const employeeRole = roles.find((r) => r.slug === 'employee');
+    const made = await as.super.post('/api/admin/users', { name: 'Delete Me', email: 'deleteme@rqms.test', mobile: '9000011111', password: 'secret123', is_active: true, roles: [employeeRole.id] });
+    assert.equal(made.status, 201, made.text);
+    const uid = made.json.id;
+
+    const dm = client();
+    await dm.login('deleteme@rqms.test', 'secret123');
+    assert.equal((await dm.put('/api/profile', fullProfile({ name: 'Delete Me', mobile: '9000011111', employee_id: 'EMPDEL1', pf_number: 'PFDEL1' }))).status, 200);
+    const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
+    const app = await dm.form('/api/applications', fd);
+    assert.equal(app.status, 201, app.text);
+    const [[{ pid }]] = await pool.query("SELECT id AS pid FROM employee_profiles WHERE employee_id = 'EMPDEL1'");
+
+    // guards
+    assert.equal((await as.admin.del(`/api/admin/users/${uid}`)).status, 403, 'the admin cannot delete');
+    assert.equal((await as.clerk.del(`/api/admin/users/${uid}`)).status, 403);
+    assert.equal((await dm.del(`/api/admin/users/${uid}`)).status, 403);
+    const staffId = (await as.super.get('/api/admin/users?q=clerk@rqms')).json.data[0].id;
+    assert.equal((await as.super.del(`/api/admin/users/${staffId}`)).status, 422, 'staff accounts are deactivated, not deleted');
+    const meId = (await as.super.get('/api/admin/users?q=super@rqms')).json.data[0].id;
+    assert.equal((await as.super.del(`/api/admin/users/${meId}`)).status, 422, 'not your own account');
+    assert.equal((await as.super.del('/api/admin/users/999999')).status, 404);
+
+    // holding a quarter blocks it
+    await pool.query("INSERT INTO allotments (allotment_order_no, quarter_id, employee_profile_id, status) SELECT 'AO-DEL-TEST', id, ?, 'possession_taken' FROM quarters LIMIT 1", [pid]);
+    const blocked = await as.super.del(`/api/admin/users/${uid}`);
+    assert.equal(blocked.status, 422);
+    assert.match(blocked.json.message, /quarter allotted/);
+    await pool.query("DELETE FROM allotments WHERE allotment_order_no = 'AO-DEL-TEST'");
+
+    // now it goes, with everything attached to it
+    const del = await as.super.del(`/api/admin/users/${uid}`);
+    assert.equal(del.status, 200, del.text);
+    for (const [sql, args] of [
+      ['SELECT COUNT(*) AS n FROM users WHERE id = ?', [uid]],
+      ['SELECT COUNT(*) AS n FROM employee_profiles WHERE id = ?', [pid]],
+      ['SELECT COUNT(*) AS n FROM quarter_applications WHERE employee_profile_id = ?', [pid]],
+      ['SELECT COUNT(*) AS n FROM waiting_list_entries WHERE quarter_application_id = ?', [app.json.id]],
+    ]) assert.equal((await pool.query(sql, args))[0][0].n, 0, sql);
+    const login = await client().login('deleteme@rqms.test', 'secret123').then(() => 'ok', () => 'failed');
+    assert.equal((await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'deleteme@rqms.test', password: 'secret123' }) })).status >= 400, true, `deleted employee cannot log in (${login})`);
+    const entry = (await as.super.get('/api/audit?action=user.delete')).json.data.find((a) => /Delete Me/.test(a.description ?? ''));
+    assert.ok(entry, 'the deletion is in the audit trail');
+  });
+});
+
 describe('application lifecycle (new employee, upload, verify, ineligible)', () => {
   let newUser;
   before(async () => {

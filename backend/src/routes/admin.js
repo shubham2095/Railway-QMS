@@ -1,8 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
 import { z } from 'zod';
-import { find, insert, isDuplicateKey, query, scalar, transaction, update } from '../db.js';
-import { requirePermission } from '../middleware/auth.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { config } from '../config/index.js';
+import { find, first, insert, isDuplicateKey, query, scalar, transaction, update } from '../db.js';
+import { requirePermission, requireRole } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
 import { HttpError, bool, idParam, optStr, reqStr, validate } from '../utils/http.js';
 import { like, paginate } from '../utils/paginate.js';
@@ -125,6 +128,54 @@ router.put('/users/:id', async (req, res) => {
   });
   await audit('user.update', subject('user', user.id), `User ${data.email} updated`);
   res.json({ message: 'User updated.' });
+});
+
+// DELETE /api/admin/users/:id  - super admin only. Removes an EMPLOYEE account for good: login, profile, family members,
+// applications (with their documents and colony choices), allotments, certificates and notifications.
+// It is refused while the employee holds a quarter, and it never deletes staff accounts (deactivate those instead).
+router.delete('/users/:id', requireRole('super_admin'), async (req, res) => {
+  const user = await find('users', idParam(req.params.id));
+  if (!user) throw new HttpError(404, 'Not found.');
+  if (user.id === req.user.id) throw new HttpError(422, 'You cannot delete your own account.');
+
+  const roles = (await query('SELECT r.slug FROM roles r JOIN role_user ru ON ru.role_id = r.id WHERE ru.user_id = ?', [user.id])).map((r) => r.slug);
+  if (roles.some((r) => r !== 'employee')) {
+    throw new HttpError(422, 'Only employee accounts can be deleted. Deactivate a staff account instead (Edit user, untick Active).');
+  }
+
+  const profile = await first('SELECT * FROM employee_profiles WHERE user_id = ?', [user.id]);
+  if (profile) {
+    const holding = await scalar(
+      "SELECT COUNT(*) FROM allotments WHERE employee_profile_id = ? AND status IN ('offered', 'accepted', 'possession_taken')",
+      [profile.id],
+    );
+    if (holding) {
+      throw new HttpError(422, 'This employee has a quarter allotted or offered. Complete the vacation (or reject the offer) first, then delete the account.');
+    }
+  }
+
+  const files = [];
+  await transaction(async () => {
+    if (profile) {
+      const appIds = (await query('SELECT id FROM quarter_applications WHERE employee_profile_id = ?', [profile.id])).map((r) => r.id);
+      const allotIds = (await query('SELECT id FROM allotments WHERE employee_profile_id = ?', [profile.id])).map((r) => r.id);
+      if (appIds.length) {
+        files.push(...await query("SELECT path FROM documents WHERE documentable_type = 'application' AND documentable_id IN (?)", [appIds]));
+        await query("DELETE FROM documents WHERE documentable_type = 'application' AND documentable_id IN (?)", [appIds]);
+      }
+      if (allotIds.length) await query("DELETE FROM certificates WHERE certifiable_type = 'allotment' AND certifiable_id IN (?)", [allotIds]);
+      const vacIds = (await query('SELECT id FROM vacation_requests WHERE employee_profile_id = ?', [profile.id])).map((r) => r.id);
+      if (vacIds.length) await query("DELETE FROM certificates WHERE certifiable_type = 'vacation_request' AND certifiable_id IN (?)", [vacIds]);
+    }
+    await query('DELETE FROM notification_logs WHERE user_id = ?', [user.id]);
+    await query('DELETE FROM users WHERE id = ?', [user.id]); // cascades to the profile, applications, allotments, ...
+  });
+  for (const f of files) await fs.rm(path.resolve(config.storageDir, f.path), { force: true }).catch(() => {});
+
+  await audit('user.delete', subject('user', user.id), `Employee ${user.name} (${user.email}) deleted`, {
+    employee_id: profile?.employee_id ?? null, pf_number: profile?.pf_number ?? null,
+  });
+  res.json({ message: `${user.name} has been deleted.` });
 });
 
 export default router;

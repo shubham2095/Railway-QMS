@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import { Async, Card, EmptyRow, Pagination, Pill, useFilters } from '../components/ui.jsx';
-import { useApi } from '../lib/hooks.js';
+import { Async, Card, EmptyRow, ErrorBanner, Pagination, Pill, useFilters } from '../components/ui.jsx';
+import { api } from '../lib/api.js';
+import { useAuth } from '../lib/auth.jsx';
+import { useFlash } from '../lib/flash.jsx';
+import { useAction, useApi } from '../lib/hooks.js';
 
 export default function AdminUsers() {
   useHeader('Users & Roles', 'Administration — manage accounts and access');
   const filters = useFilters();
   const q = useApi('/admin/users', Object.fromEntries(filters.params));
   const [term, setTerm] = useState(filters.get('q'));
+  const { user: me } = useAuth();
+  const flash = useFlash();
+  const act = useAction();
+
+  const remove = async (u) => {
+    if (!window.confirm(`Delete employee ${u.name} (${u.email}) permanently?\n\nTheir login, profile, applications and documents are removed. This cannot be undone.`)) return;
+    const res = await act.run(() => api.del(`/admin/users/${u.id}`));
+    if (res) { flash.success(res.message); q.reload(); }
+  };
 
   return (
     <div className="space-y-5">
@@ -20,6 +32,8 @@ export default function AdminUsers() {
         </form>
         <Link to="/admin/users/new" className="btn-signal">Add user</Link>
       </div>
+
+      <ErrorBanner error={act.error} />
 
       <Async q={q}>
         {({ data, meta }) => (
@@ -45,7 +59,14 @@ export default function AdminUsers() {
                           </div>
                         </td>
                         <td className="td">{u.is_active ? <Pill status="active">Active</Pill> : <Pill status="inactive">Inactive</Pill>}</td>
-                        <td className="td text-right"><Link to={`/admin/users/${u.id}/edit`} className="btn-ghost btn-xs">Edit</Link></td>
+                        <td className="td text-right">
+                          <div className="flex justify-end gap-2">
+                            <Link to={`/admin/users/${u.id}/edit`} className="btn-ghost btn-xs">Edit</Link>
+                            {u.id !== me.id && u.roles.length > 0 && u.roles.every((r) => r.slug === 'employee') && (
+                              <button className="btn-xs bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100" disabled={act.busy} onClick={() => remove(u)}>Delete</button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

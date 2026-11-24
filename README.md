@@ -119,7 +119,7 @@ through the real eligibility + priority engine, so the waiting list is populated
 6. **Clerk** → **Record possession** (starts occupancy; issues possession + occupancy certificates).
 7. **Employee** → *Vacations → New request* → starts the clearance chain.
 8. **Clerk → Electrical → Water → Accounts → Estate Officer** each act on their step (*Vacations → Awaiting my clearance*). The final approval issues the **NOC / No-Due / Handover** certificates and frees the quarter.
-9. **Super admin** → *Reports & MIS*, *Audit Trail*, *Users & Roles* and quarter master changes (add / edit quarters). The **admin** decides: approves from the *Approval Queue* and **offers quarters** from *Approved Applicants* (pick an applicant → *Offer quarter* → choose a vacant quarter, their colony choices first). The clerk records possession and the clerk's vacation step; the clerk no longer offers quarters.
+9. **Super admin** → *Reports & MIS*, *Audit Trail*, *Users & Roles* and quarter master changes (add / edit quarters). The **admin** decides: approves from the *Approval Queue* and **offers quarters** from *Approved Applicants* (pick an applicant → *Offer quarter* → choose a vacant quarter, their colony choices first). The **super admin** can delete an employee (Users & Roles → *Delete*, or the employee's page): login, profile, applications, documents and notifications are removed for good; refused while the employee holds a quarter, never for staff accounts, and recorded in the audit trail. The clerk records possession and the clerk's vacation step; the clerk no longer offers quarters.
 
 ---
 
@@ -162,7 +162,7 @@ All routes are under `/api` and require the session cookie unless noted. Errors 
 | Notifications (M12) | `GET /notifications` |
 | Reports (M13) | `GET /reports` |
 | Audit (M14) | `GET /audit` |
-| Admin | `GET /admin/roles` · `GET/POST /admin/users` · `GET/PUT /admin/users/:id` |
+| Admin (super admin) | `GET /admin/roles` · `GET/POST /admin/users` · `GET/PUT/DELETE /admin/users/:id` |
 
 ### Roles & permissions
 Eight roles (`employee`, `quarter_clerk`, `estate_officer`, `electrical_dept`, `water_dept`, `accounts_dept`, `admin`, `super_admin`)

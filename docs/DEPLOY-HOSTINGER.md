@@ -162,3 +162,8 @@ Locally: `npm run db:quarters` in `backend/`. Optional: `MASTER_ZONE`, `MASTER_D
 `IMPORT_QUARTERS=true` switch into `legacy_waiting_list` (unique on the request number, so re-running never duplicates) and
 shown to the staff under **Pending Requests (old list)**. To add more reports:
 `python3 -I database/data/convert_waitlist.py database/data <report.xlsx> ...` (rows are merged by request number), commit, redeploy.
+
+Gazetted officers' priority lists (Transit flat, Type-IV, Type-IV Spl, Type-V, Type-V Safdarjung, Type-VI) come from
+`python3 -I database/data/convert_gazetted.py database/data <priority.xlsx>` -> `waitlist-GAZETTED.json`. They keep the
+sheet's own order, the places of registration, present flat, contact and remarks; where a "date of refusal" is given,
+the priority counts from that date and the original registration date is kept in the remarks.

@@ -78,10 +78,18 @@ const LEGACY_WAITING_LIST_DDL = `CREATE TABLE legacy_waiting_list (
   pay_scale      VARCHAR(50) NULL,
   pf_number      VARCHAR(50) NULL,
   unit           VARCHAR(50) NULL,                 -- issuing unit in the request number (BTHP, HP ...)
+  list_name      VARCHAR(60) NULL,                 -- which list: Type-II, Transit flat, Type-IV Spl ...
+  staff_kind     VARCHAR(20) NULL,                 -- staff / gazetted
+  present_accommodation VARCHAR(255) NULL,
+  preferred_colonies    VARCHAR(500) NULL,         -- places of registration, in order
+  contact_no     VARCHAR(30) NULL,
+  remarks        VARCHAR(500) NULL,
+  list_order     INT UNSIGNED NULL,                -- position on the source sheet (gazetted lists)
   created_at     DATETIME NULL,
   updated_at     DATETIME NULL,
   UNIQUE KEY lwl_request_unique (request_no),
   KEY lwl_type_date_index (quarter_type, request_date),
+  KEY lwl_list_index (list_name, list_order, request_date),
   KEY lwl_pf_index (pf_number)
 ) ENGINE=InnoDB`;
 
@@ -118,6 +126,21 @@ const MIGRATIONS = [
   addColumn('employee_profiles', 'current_address', 'VARCHAR(500) NULL AFTER date_of_birth'),
   createTable('application_colony_preferences', COLONY_PREFERENCES_DDL),
   createTable('legacy_waiting_list', LEGACY_WAITING_LIST_DDL),
+  addColumn('legacy_waiting_list', 'list_name', 'VARCHAR(60) NULL AFTER unit'),
+  addColumn('legacy_waiting_list', 'staff_kind', 'VARCHAR(20) NULL AFTER list_name'),
+  addColumn('legacy_waiting_list', 'present_accommodation', 'VARCHAR(255) NULL AFTER staff_kind'),
+  addColumn('legacy_waiting_list', 'preferred_colonies', 'VARCHAR(500) NULL AFTER present_accommodation'),
+  addColumn('legacy_waiting_list', 'contact_no', 'VARCHAR(30) NULL AFTER preferred_colonies'),
+  addColumn('legacy_waiting_list', 'remarks', 'VARCHAR(500) NULL AFTER contact_no'),
+  addColumn('legacy_waiting_list', 'list_order', 'INT UNSIGNED NULL AFTER remarks'),
+  addIndex('legacy_waiting_list', 'lwl_list_index', 'list_name, list_order, request_date'),
+  {
+    name: 'legacy_waiting_list list_name backfill',
+    async run() {
+      const r = await query("UPDATE legacy_waiting_list SET list_name = CONCAT('Type-', quarter_type), staff_kind = 'staff' WHERE list_name IS NULL");
+      return r.affectedRows > 0;
+    },
+  },
   // Clerk verification of employee profiles
   addColumn('employee_profiles', 'verification_status', "VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER has_active_allotment"),
   addColumn('employee_profiles', 'verified_by', 'BIGINT UNSIGNED NULL AFTER verification_status'),

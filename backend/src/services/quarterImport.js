@@ -48,13 +48,18 @@ export async function importWaitingListData(dir = config.rqms.masterData.dir) {
     const rows = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
     for (let i = 0; i < rows.length; i += 500) {
       const values = rows.slice(i, i + 500).map((r) => [
-        r.request_no, r.request_date, r.name, r.designation, r.quarter_type, r.category, r.pay_scale, r.pf_number, r.unit, now, now,
+        r.request_no, r.request_date, r.name, r.designation, r.quarter_type, r.category, r.pay_scale, r.pf_number, r.unit,
+        r.list_name ?? `Type-${r.quarter_type}`, r.staff_kind ?? 'staff', r.present_accommodation ?? null, r.preferred_colonies ?? null,
+        r.contact_no ?? null, r.remarks ?? null, r.sheet_no ?? null, now, now,
       ]);
       await query(
-        `INSERT INTO legacy_waiting_list (request_no, request_date, name, designation, quarter_type, category, pay_scale, pf_number, unit, created_at, updated_at)
+        `INSERT INTO legacy_waiting_list (request_no, request_date, name, designation, quarter_type, category, pay_scale, pf_number, unit,
+           list_name, staff_kind, present_accommodation, preferred_colonies, contact_no, remarks, list_order, created_at, updated_at)
          VALUES ? ON DUPLICATE KEY UPDATE request_date = VALUES(request_date), name = VALUES(name), designation = VALUES(designation),
            quarter_type = VALUES(quarter_type), category = VALUES(category), pay_scale = VALUES(pay_scale), pf_number = VALUES(pf_number),
-           unit = VALUES(unit), updated_at = VALUES(updated_at)`,
+           unit = VALUES(unit), list_name = VALUES(list_name), staff_kind = VALUES(staff_kind), present_accommodation = VALUES(present_accommodation),
+           preferred_colonies = VALUES(preferred_colonies), contact_no = VALUES(contact_no), remarks = VALUES(remarks),
+           list_order = VALUES(list_order), updated_at = VALUES(updated_at)`,
         [values],
       );
     }

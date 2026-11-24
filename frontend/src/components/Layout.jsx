@@ -115,9 +115,9 @@ export default function Layout() {
               </Section>
             )}
 
-            {(hasPermission('users.manage') || hasRole('admin', 'super_admin')) && (
+            {hasRole('super_admin') && (
               <Section title="Administration">
-                {hasPermission('users.manage') && <NavItem to="/admin/users" icon="users" onClick={close}>Users &amp; Roles</NavItem>}
+                <NavItem to="/admin/users" icon="users" onClick={close}>Users &amp; Roles</NavItem>
                 <NavItem to="/audit" icon="shield" onClick={close}>Audit Trail</NavItem>
               </Section>
             )}

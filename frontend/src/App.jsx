@@ -113,7 +113,7 @@ export default function App() {
         <Route path="/certificates" element={<Certificates />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/reports" element={<Guard permission="reports.view"><Reports /></Guard>} />
-        <Route path="/audit" element={<Guard roles={['admin', 'super_admin']}><Audit /></Guard>} />
+        <Route path="/audit" element={<Guard roles={['super_admin']}><Audit /></Guard>} />
 
         <Route path="/admin/users" element={<Guard permission="users.manage"><AdminUsers /></Guard>} />
         <Route path="/admin/users/new" element={<Guard permission="users.manage"><AdminUserForm /></Guard>} />

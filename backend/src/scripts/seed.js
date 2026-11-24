@@ -54,12 +54,14 @@ const PERMISSIONS = {
 
 const ROLE_PERMISSIONS = {
   employee: [],
-  quarter_clerk: ['application.verify', 'quarter.manage', 'allotment.approve', 'allotment.possession', 'vacation.clerk_inspection'],
+  quarter_clerk: ['application.verify', 'quarter.manage', 'allotment.possession', 'vacation.clerk_inspection'],
   estate_officer: ['application.decide', 'allotment.approve', 'allotment.possession', 'vacation.estate_officer', 'reports.view'],
   electrical_dept: ['vacation.electrical'],
   water_dept: ['vacation.water'],
   accounts_dept: ['vacation.accounts'],
-  admin: ['application.decide', 'users.manage', 'master.manage', 'settings.manage', 'quarter.manage', 'reports.view'],
+  // The admin decides who gets a quarter: approves applications and offers quarters from the approved list.
+  // Users & roles, quarter master changes, reports and the audit trail belong to the super admin.
+  admin: ['application.decide', 'allotment.approve'],
   super_admin: Object.values(PERMISSIONS).flatMap((g) => Object.keys(g)),
 };
 

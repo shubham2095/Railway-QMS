@@ -48,7 +48,7 @@ reports.get('/', requirePermission('reports.view'), async (_req, res) => {
 });
 
 // ---- Module 14: audit trail ----
-audit.get('/', requireRole('admin', 'super_admin'), async (req, res) => {
+audit.get('/', requireRole('super_admin'), async (req, res) => {
   const where = [];
   const params = [];
   if (req.query.action) { where.push('l.action LIKE ?'); params.push(like(req.query.action)); }

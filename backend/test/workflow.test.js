@@ -126,6 +126,25 @@ describe('authentication & RBAC', () => {
     assert.equal((await as.employee.post('/api/applications/1/decide', { decision: 'approve' })).status, 403);
     assert.equal((await as.admin.post('/api/applications/1/forward')).status, 403, 'the admin does not forward');
   });
+
+  test('admin vs super admin: the admin decides and offers quarters; users, quarter master, reports and audit are the super admin\'s', async () => {
+    // the admin: approve + offer from the list, but no user management / quarter master edits / reports / audit trail
+    const adminMe = (await as.admin.get('/api/auth/me')).json.user.permissions;
+    assert.deepEqual([...adminMe].sort(), ['allotment.approve', 'application.decide']);
+    assert.equal((await as.admin.get('/api/admin/users')).status, 403);
+    assert.equal((await as.admin.get('/api/reports')).status, 403);
+    assert.equal((await as.admin.get('/api/audit')).status, 403);
+    const body = { quarter_number: 'ADM-1', quarter_type: 'III', colony_name: 'Colony A', station: 'NDLS', status: 'vacant' };
+    assert.equal((await as.admin.post('/api/quarters', body)).status, 403, 'only the super admin / clerk change the quarter master');
+    assert.equal((await as.admin.get('/api/quarters')).status, 200, 'but the admin can see the quarters to offer one');
+    assert.equal((await as.admin.get('/api/approval-queue')).status, 200);
+    // the clerk no longer offers quarters; the super admin can do everything
+    assert.equal((await as.clerk.post('/api/quarters/1/offer', { waiting_list_entry_id: 1 })).status, 403, 'the admin gives the quarter, not the clerk');
+    assert.equal((await as.super.get('/api/admin/users')).status, 200);
+    assert.equal((await as.super.get('/api/reports')).status, 200);
+    assert.equal((await as.super.get('/api/audit')).status, 200);
+    assert.equal((await as.super.post('/api/quarters', { ...body, quarter_type: 'IX' })).status, 422, 'allowed to try (validation answers), not forbidden');
+  });
 });
 
 describe('one open application per employee', () => {
@@ -195,9 +214,9 @@ describe('seeded data & priority engine', () => {
 describe('application lifecycle (new employee, upload, verify, ineligible)', () => {
   let newUser;
   before(async () => {
-    const roles = (await as.admin.get('/api/admin/roles')).json.roles;
+    const roles = (await as.super.get('/api/admin/roles')).json.roles;
     const employeeRole = roles.find((r) => r.slug === 'employee');
-    const created = await as.admin.post('/api/admin/users', {
+    const created = await as.super.post('/api/admin/users', {
       name: 'Test Employee', email: 'new@rqms.test', password: 'secret123', is_active: true, roles: [employeeRole.id],
     });
     assert.equal(created.status, 201, created.text);
@@ -206,12 +225,12 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
   });
 
   test('admin user management validates input', async () => {
-    const dup = await as.admin.post('/api/admin/users', { name: 'X', email: 'new@rqms.test', password: 'secret123', roles: [] });
+    const dup = await as.super.post('/api/admin/users', { name: 'X', email: 'new@rqms.test', password: 'secret123', roles: [] });
     assert.equal(dup.status, 422);
     assert.ok(dup.json.errors.email);
-    const weak = await as.admin.post('/api/admin/users', { name: 'X', email: 'x@rqms.test', password: 'short', roles: [] });
+    const weak = await as.super.post('/api/admin/users', { name: 'X', email: 'x@rqms.test', password: 'short', roles: [] });
     assert.equal(weak.status, 422);
-    const list = await as.admin.get('/api/admin/users?q=new@rqms');
+    const list = await as.super.get('/api/admin/users?q=new@rqms');
     assert.equal(list.json.data[0].email, 'new@rqms.test');
     assert.equal(list.json.data[0].roles[0].slug, 'employee');
   });
@@ -306,7 +325,7 @@ describe('quarter master', () => {
     assert.equal((await as.clerk.post('/api/quarters', { ...body, quarter_number: 'Q-502', quarter_type: 'IX' })).status, 422);
     assert.equal((await as.estate.post('/api/quarters', { ...body, quarter_number: 'Q-503' })).status, 403, 'estate officer lacks quarter.manage');
 
-    assert.equal((await as.admin.put(`/api/quarters/${created.json.id}`, { ...body, status: 'under_maintenance' })).status, 200);
+    assert.equal((await as.super.put(`/api/quarters/${created.json.id}`, { ...body, status: 'under_maintenance' })).status, 200);
     const filtered = await as.clerk.get('/api/quarters?status=under_maintenance&q=501');
     assert.equal(filtered.json.data.length, 1);
     assert.equal(filtered.json.meta.total, 1);
@@ -332,7 +351,7 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     const quarters = await as.clerk.get('/api/quarters?type=III&status=vacant');
     quarterId = quarters.json.data.find((q) => q.quarter_number === 'Q-101').id;
     const entry = (await as.admin.get('/api/approval-queue?type=III')).json.entries[0];
-    const early = await as.clerk.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entry.id });
+    const early = await as.admin.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entry.id });
     assert.equal(early.status, 422);
     assert.match(early.json.message, /approved/);
 
@@ -362,13 +381,13 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     assert.equal((await as.employee.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId })).status, 403);
     assert.equal((await as.estate.post(`/api/quarters/${quarterId}/offer`, {})).status, 422);
 
-    const offer = await as.clerk.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId });
+    const offer = await as.admin.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId });
     assert.equal(offer.status, 201, offer.text);
     allotmentId = offer.json.id;
 
     // quarter no longer allocatable; the same quarter can't be offered twice
     assert.equal((await as.clerk.get(`/api/quarters/${quarterId}`)).json.quarter.status, 'allotted');
-    assert.equal((await as.clerk.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId })).status, 422);
+    assert.equal((await as.admin.post(`/api/quarters/${quarterId}/offer`, { waiting_list_entry_id: entryId })).status, 422);
 
     // Ravi leaves the queue; Meena is now rank 1
     const wl = await as.admin.get('/api/approval-queue?type=III');
@@ -419,7 +438,7 @@ describe('allotment -> occupancy -> vacation -> clearance (the full chain)', () 
     assert.equal((await as.admin.post('/api/approval-queue/approve', { application_ids: [meenaId] })).status, 200);
     const sugg = (await as.clerk.get(`/api/quarters/${q102.id}`)).json.suggestions;
     assert.equal(sugg.length, 1);
-    const offer = await as.clerk.post(`/api/quarters/${q102.id}/offer`, { waiting_list_entry_id: sugg[0].id });
+    const offer = await as.admin.post(`/api/quarters/${q102.id}/offer`, { waiting_list_entry_id: sugg[0].id });
     assert.equal(offer.status, 201);
     assert.equal((await as.employee2.post(`/api/allotments/${offer.json.id}/respond`, { decision: 'reject' })).status, 200);
     assert.equal((await as.clerk.get(`/api/quarters/${q102.id}`)).json.quarter.status, 'vacant');
@@ -587,7 +606,7 @@ describe('retirement, reports, audit, notifications', () => {
     assert.equal(r.json.vacation_status.completed, 1);
     assert.ok(r.json.type_wise.III);
 
-    const audit = await as.admin.get('/api/audit?action=vacation');
+    const audit = await as.super.get('/api/audit?action=vacation');
     assert.equal(audit.status, 200);
     assert.ok(audit.json.data.length >= 5);
     assert.ok(audit.json.actions.includes('allotment.offer'));
@@ -612,9 +631,9 @@ describe('retirement, reports, audit, notifications', () => {
     assert.equal((await c.post('/api/auth/logout')).status, 200);
     assert.equal((await c.get('/api/dashboard')).status, 401);
 
-    const users = (await as.admin.get('/api/admin/users?q=Water')).json.data;
+    const users = (await as.super.get('/api/admin/users?q=Water')).json.data;
     const water = users[0];
-    const upd = await as.admin.put(`/api/admin/users/${water.id}`, { name: water.name, email: water.email, is_active: false, roles: water.roles.map((x) => x.id) });
+    const upd = await as.super.put(`/api/admin/users/${water.id}`, { name: water.name, email: water.email, is_active: false, roles: water.roles.map((x) => x.id) });
     assert.equal(upd.status, 200, upd.text);
     assert.equal((await as.water.get('/api/dashboard')).status, 401, 'existing session is revoked');
     const attempt = await client().post('/api/auth/login', { email: 'water@rqms.test', password: 'password' });
@@ -639,7 +658,7 @@ describe('employee self-signup', () => {
   test('registers an employee (no auto-login) who then signs in with the employee role only', async () => {
     const c = client();
     // try to smuggle in privileges: unknown fields must be ignored
-    const superRole = (await as.admin.get('/api/admin/roles')).json.roles.find((r) => r.slug === 'super_admin');
+    const superRole = (await as.super.get('/api/admin/roles')).json.roles.find((r) => r.slug === 'super_admin');
     const res = await c.post('/api/auth/register', form({ roles: [superRole.id], role: 'super_admin', is_active: true, permissions: ['users.manage'] }));
     assert.equal(res.status, 201, res.text);
     assert.match(res.json.message, /Please sign in/);
@@ -672,7 +691,7 @@ describe('employee self-signup', () => {
       assert.equal((await c.get(url)).status, 403, url);
     }
 
-    const audit = (await as.admin.get('/api/audit?action=auth.register')).json;
+    const audit = (await as.super.get('/api/audit?action=auth.register')).json;
     assert.equal(audit.data.length, 1);
     assert.equal(audit.data[0].description, 'Employee self-registered');
   });

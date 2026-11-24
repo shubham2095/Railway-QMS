@@ -48,6 +48,7 @@ router.get('/', staff, async (req, res) => {
   if (req.query.type) { where.push('q.quarter_type = ?'); params.push(String(req.query.type)); }
   if (req.query.status) { where.push('q.status = ?'); params.push(String(req.query.status)); }
   if (req.query.station) { where.push('q.station LIKE ?'); params.push(like(req.query.station)); }
+  if (req.query.colony) { where.push('q.colony_name = ?'); params.push(String(req.query.colony)); }
   if (req.query.q) { where.push('q.quarter_number LIKE ?'); params.push(like(req.query.q)); }
 
   const result = await paginate(req, {

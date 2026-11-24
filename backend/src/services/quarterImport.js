@@ -67,3 +67,9 @@ export async function importWaitingListData(dir = config.rqms.masterData.dir) {
   }
   return results;
 }
+
+/** Remove every imported pending request (the "old list"). Returns how many rows were deleted. */
+export async function clearLegacyWaitingList() {
+  const res = await query('DELETE FROM legacy_waiting_list');
+  return res.affectedRows;
+}

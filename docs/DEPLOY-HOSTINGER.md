@@ -172,3 +172,10 @@ More quarter types: `python3 -I database/data/convert_quarters.py database/data 
 `Master Data-<TYPE>` into `quarters-type<TYPE>.json` (commit it, redeploy). "II(Peela)" quarters are Type II with "Peela" in
 the remarks; office / union / barrack quarters are loaded as *reserved*, unsafe / dismantled / sealed ones as *under maintenance*.
 A quarter is identified by station + colony + number + type, so Type I and Type II may share a number in the same colony.
+
+### Removing the old waiting list
+
+The imported pending requests are **not** in the repository any more (`database/data/waitlist-*.json` were removed; they stay in
+git history, e.g. commit `18ab1d2`, and can be regenerated with the converters). To delete the rows that are already in a
+database set `CLEAR_WAITING_LIST=true`, restart once (logs: `[waitlist] CLEAR_WAITING_LIST=true: removed N pending requests`),
+then remove the variable. Locally: `npm run db:clear-waitlist`.

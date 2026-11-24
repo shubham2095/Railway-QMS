@@ -15,6 +15,7 @@
     "db:fresh": "node src/scripts/setup.js --fresh",
     "db:seed": "node src/scripts/seed.js",
     "db:quarters": "node src/scripts/import-quarters.js",
+    "db:clear-waitlist": "node src/scripts/clear-waiting-list.js",
     "db:admin": "node src/scripts/create-admin.js",
     "test": "node --test test/workflow.test.js"
   },

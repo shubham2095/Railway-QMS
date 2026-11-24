@@ -66,6 +66,8 @@ export const config = {
     seedDemo: process.env.SEED_DEMO === 'true',
     // Opt-in: load the quarter master data (idempotent, safe to leave on).
     importQuarters: process.env.IMPORT_QUARTERS === 'true',
+    // One-off: delete every imported pending request (old waiting list) at the next start, then remove the variable.
+    clearWaitingList: process.env.CLEAR_WAITING_LIST === 'true',
   },
 
   auth: {

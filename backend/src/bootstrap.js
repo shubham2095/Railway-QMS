@@ -2,7 +2,7 @@ import { config } from './config/index.js';
 import { pool, query, scalar } from './db.js';
 import { runMigrations } from './migrations.js';
 import { applySchema } from './scripts/schema.js';
-import { importAllQuarterMasterData, importWaitingListData } from './services/quarterImport.js';
+import { clearLegacyWaitingList, importAllQuarterMasterData, importWaitingListData } from './services/quarterImport.js';
 import { createSuperAdmin, seedAll, seedRolesAndPermissions } from './scripts/seed.js';
 
 /**
@@ -60,10 +60,14 @@ export async function bootstrap() {
  * server is ready (the site must never wait for it) and under the same lock, so several instances do not import at once.
  */
 export async function importData() {
-  if (!config.bootstrap.importQuarters) return;
+  if (!config.bootstrap.importQuarters && !config.bootstrap.clearWaitingList) return;
   await withBootstrapLock(async () => {
     const [hasQuarters] = await query("SHOW TABLES LIKE 'quarters'");
     if (!hasQuarters) return;
+    if (config.bootstrap.clearWaitingList) {
+      console.log(`[waitlist] CLEAR_WAITING_LIST=true: removed ${await clearLegacyWaitingList()} pending requests. Remove the variable now.`);
+    }
+    if (!config.bootstrap.importQuarters) return;
     const t0 = Date.now();
     for (const r of await importAllQuarterMasterData()) console.log(`[quarters] Type ${r.type}: ${r.total} quarters synced from master data.`);
     for (const r of await importWaitingListData()) console.log(`[waitlist] ${r.file}: ${r.total} requests synced.`);

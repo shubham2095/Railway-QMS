@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
 import ProfileStatusBanner from '../components/ProfileStatusBanner.jsx';
 import { Async, Card, ErrorBanner, Icon, Pill, Required } from '../components/ui.jsx';
+import { useAuth } from '../lib/auth.jsx';
 import { useFlash } from '../lib/flash.jsx';
 import { api } from '../lib/api.js';
 import { CATEGORIES, SERVICE_TYPES } from '../lib/constants.js';
@@ -12,6 +13,7 @@ import { useAction, useApi } from '../lib/hooks.js';
 export default function ProfileShow() {
   useHeader('My Profile', 'Employee details and family particulars');
   const q = useApi('/profile');
+  const { hasRole, user: me } = useAuth();
   const flash = useFlash();
   const add = useAction();
   const [form, setForm] = useState({ name: '', relation: '', date_of_birth: '', is_dependent: true });
@@ -36,6 +38,20 @@ export default function ProfileShow() {
   return (
     <Async q={q}>
       {({ user, profile, family_members: family }) => {
+        if (!profile && !hasRole('employee')) {
+          // Estate-office staff (clerk / admin / super admin) have an account, not an employee profile.
+          return (
+            <Card title="My account">
+              <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Name</dt><dd className="mt-0.5 text-ink">{user.name}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Email ID</dt><dd className="mt-0.5 text-ink">{user.email}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Phone number</dt><dd className="mt-0.5 text-ink">{user.mobile || '—'}</dd></div>
+                <div><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Role</dt><dd className="mt-0.5 text-ink">{(me.roles ?? []).map((r) => r.replace(/_/g, ' ')).join(', ')}</dd></div>
+              </dl>
+              <p className="mt-4 text-xs text-slate-400">An employee profile is only needed for employees who apply for a quarter.</p>
+            </Card>
+          );
+        }
         if (!profile) {
           return (
             <Card>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
 import ProfileStatusBanner from '../components/ProfileStatusBanner.jsx';
 import { Async, Card, ErrorBanner, Required } from '../components/ui.jsx';
@@ -31,7 +31,7 @@ function Text({ label, name, f, set, mono = false, ...rest }) {
 export default function ProfileEdit() {
   const q = useApi('/profile');
   const navigate = useNavigate();
-  const { refresh, user: me } = useAuth();
+  const { refresh, user: me, hasRole } = useAuth();
   const firstTime = !me.profile_complete; // finishing the profile for the first time -> unlocks the app
   useHeader(firstTime ? 'Complete your profile' : 'Edit Profile', firstTime ? 'Step 1 — required before you can use the system' : 'Update your details');
   const save = useAction();
@@ -45,6 +45,8 @@ export default function ProfileEdit() {
     const saved = Object.fromEntries(PROFILE_FIELDS.map((k) => [k, p?.[k] ?? '']));
     setF({ ...EMPTY, ...saved, name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '' });
   }, [q.data]);
+  // staff accounts (no employee role, no profile) have nothing to complete
+  if (!hasRole('employee') && !me.profile) return <Navigate to="/profile" replace />;
 
   const submit = async (e) => {
     e.preventDefault();

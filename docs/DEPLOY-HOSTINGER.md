@@ -155,3 +155,10 @@ To load it on the live site set the environment variable `IMPORT_QUARTERS=true` 
 file into `quarters` (idempotent - re-running never duplicates rows or overwrites status/occupant of quarters already in use).
 Locally: `npm run db:quarters` in `backend/`. Optional: `MASTER_ZONE`, `MASTER_DIVISION`, `MASTER_STATION`
 (defaults: Northern Railway / Delhi / New Delhi) set the location stamped on imported quarters.
+
+### Old waiting list (pending requests)
+
+`database/data/waitlist-<UNIT>.json` holds the requests made before this system (BTHP, HP ...). They are loaded by the same
+`IMPORT_QUARTERS=true` switch into `legacy_waiting_list` (unique on the request number, so re-running never duplicates) and
+shown to the staff under **Pending Requests (old list)**. To add more reports:
+`python3 -I database/data/convert_waitlist.py database/data <report.xlsx> ...` (rows are merged by request number), commit, redeploy.

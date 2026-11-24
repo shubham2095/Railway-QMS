@@ -38,3 +38,27 @@ export async function importAllQuarterMasterData() {
   for (const file of masterDataFiles(config.rqms.masterData.dir)) results.push(await importQuarterMasterData(file));
   return results;
 }
+
+/** Waiting-list requests made before this system (database/data/waitlist-*.json). Idempotent on the request number. */
+export async function importWaitingListData(dir = config.rqms.masterData.dir) {
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^waitlist-.*\.json$/.test(f)).sort() : [];
+  const now = nowStr();
+  const results = [];
+  for (const f of files) {
+    const rows = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+    for (let i = 0; i < rows.length; i += 500) {
+      const values = rows.slice(i, i + 500).map((r) => [
+        r.request_no, r.request_date, r.name, r.designation, r.quarter_type, r.category, r.pay_scale, r.pf_number, r.unit, now, now,
+      ]);
+      await query(
+        `INSERT INTO legacy_waiting_list (request_no, request_date, name, designation, quarter_type, category, pay_scale, pf_number, unit, created_at, updated_at)
+         VALUES ? ON DUPLICATE KEY UPDATE request_date = VALUES(request_date), name = VALUES(name), designation = VALUES(designation),
+           quarter_type = VALUES(quarter_type), category = VALUES(category), pay_scale = VALUES(pay_scale), pf_number = VALUES(pf_number),
+           unit = VALUES(unit), updated_at = VALUES(updated_at)`,
+        [values],
+      );
+    }
+    results.push({ file: f, total: rows.length });
+  }
+  return results;
+}

@@ -26,6 +26,7 @@ import retirementsRouter from './routes/retirements.js';
 import vacationsRouter from './routes/vacations.js';
 import waitingListRouter from './routes/waitingList.js';
 import approvalQueueRouter from './routes/approvalQueue.js';
+import legacyWaitingListRouter from './routes/legacyWaitingList.js';
 
 export function createApp() {
   const app = express();
@@ -86,6 +87,7 @@ export function createApp() {
   api.use('/documents', documentsRouter);
   api.use('/waiting-list', waitingListRouter);
   api.use('/approval-queue', approvalQueueRouter);
+  api.use('/legacy-waiting-list', legacyWaitingListRouter);
   api.use('/quarters', quartersRouter);
   api.use('/', allotmentsRouter); // /allotments..., /quarters/:id/offer
   api.use('/vacations', vacationsRouter);

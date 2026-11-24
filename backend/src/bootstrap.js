@@ -2,7 +2,7 @@ import { config } from './config/index.js';
 import { pool, query, scalar } from './db.js';
 import { runMigrations } from './migrations.js';
 import { applySchema } from './scripts/schema.js';
-import { importAllQuarterMasterData } from './services/quarterImport.js';
+import { importAllQuarterMasterData, importWaitingListData } from './services/quarterImport.js';
 import { createSuperAdmin, seedAll, seedRolesAndPermissions } from './scripts/seed.js';
 
 /**
@@ -51,6 +51,7 @@ export async function bootstrap() {
     if (hasUsers) await seedRolesAndPermissions();
     if (config.bootstrap.importQuarters && hasUsers) {
       for (const r of await importAllQuarterMasterData()) console.log(`[quarters] Type ${r.type}: ${r.total} quarters synced from master data.`);
+      for (const r of await importWaitingListData()) console.log(`[waitlist] ${r.file}: ${r.total} requests synced.`);
     }
   });
 }

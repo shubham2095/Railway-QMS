@@ -201,6 +201,25 @@ CREATE TABLE waiting_list_entries (
   CONSTRAINT wle_application_fk FOREIGN KEY (quarter_application_id) REFERENCES quarter_applications (id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- ------------------------------------------------------- Imported waiting list (requests made before this system)
+CREATE TABLE legacy_waiting_list (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  request_no     VARCHAR(100) NOT NULL,            -- e.g. DRM/BTHP/MAR-17-000002
+  request_date   DATE NULL,                        -- in the line since
+  name           VARCHAR(255) NULL,
+  designation    VARCHAR(255) NULL,
+  quarter_type   VARCHAR(10) NOT NULL,             -- I..VI
+  category       VARCHAR(20) NULL,                 -- essential / non_essential
+  pay_scale      VARCHAR(50) NULL,
+  pf_number      VARCHAR(50) NULL,
+  unit           VARCHAR(50) NULL,                 -- issuing unit in the request number (BTHP, HP ...)
+  created_at     DATETIME NULL,
+  updated_at     DATETIME NULL,
+  UNIQUE KEY lwl_request_unique (request_no),
+  KEY lwl_type_date_index (quarter_type, request_date),
+  KEY lwl_pf_index (pf_number)
+) ENGINE=InnoDB;
+
 -- ------------------------------------------------------- Modules 6-7: allotment
 CREATE TABLE allotments (
   id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

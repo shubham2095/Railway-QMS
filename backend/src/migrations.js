@@ -67,6 +67,24 @@ const createTable = (name, ddl) => ({
   },
 });
 
+const LEGACY_WAITING_LIST_DDL = `CREATE TABLE legacy_waiting_list (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  request_no     VARCHAR(100) NOT NULL,            -- e.g. DRM/BTHP/MAR-17-000002
+  request_date   DATE NULL,                        -- in the line since
+  name           VARCHAR(255) NULL,
+  designation    VARCHAR(255) NULL,
+  quarter_type   VARCHAR(10) NOT NULL,             -- I..VI
+  category       VARCHAR(20) NULL,                 -- essential / non_essential
+  pay_scale      VARCHAR(50) NULL,
+  pf_number      VARCHAR(50) NULL,
+  unit           VARCHAR(50) NULL,                 -- issuing unit in the request number (BTHP, HP ...)
+  created_at     DATETIME NULL,
+  updated_at     DATETIME NULL,
+  UNIQUE KEY lwl_request_unique (request_no),
+  KEY lwl_type_date_index (quarter_type, request_date),
+  KEY lwl_pf_index (pf_number)
+) ENGINE=InnoDB`;
+
 const COLONY_PREFERENCES_DDL = `CREATE TABLE application_colony_preferences (
   id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   quarter_application_id BIGINT UNSIGNED NOT NULL,
@@ -99,6 +117,7 @@ const MIGRATIONS = [
   addColumn('employee_profiles', 'date_of_birth', 'DATE NULL AFTER father_name'),
   addColumn('employee_profiles', 'current_address', 'VARCHAR(500) NULL AFTER date_of_birth'),
   createTable('application_colony_preferences', COLONY_PREFERENCES_DDL),
+  createTable('legacy_waiting_list', LEGACY_WAITING_LIST_DDL),
   // Clerk verification of employee profiles
   addColumn('employee_profiles', 'verification_status', "VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER has_active_allotment"),
   addColumn('employee_profiles', 'verified_by', 'BIGINT UNSIGNED NULL AFTER verification_status'),

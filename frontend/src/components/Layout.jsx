@@ -109,6 +109,7 @@ export default function Layout() {
                 <NavItem to="/quarters" icon="building" onClick={close}>Quarter Master</NavItem>
                 {hasPermission('application.decide') && <NavItem to="/approval-queue" icon="list" badge={decideBadge} onClick={close}>Approval Queue</NavItem>}
                 <NavItem to="/waiting-list" icon="list" onClick={close}>Approved Applicants</NavItem>
+                <NavItem to="/legacy-waiting-list" icon="list" onClick={close}>Pending Requests (old list)</NavItem>
                 <NavItem to="/retirements" icon="clock" onClick={close}>Retirement</NavItem>
                 {hasPermission('reports.view') && <NavItem to="/reports" icon="chart" onClick={close}>Reports &amp; MIS</NavItem>}
               </Section>

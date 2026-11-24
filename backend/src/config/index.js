@@ -64,6 +64,8 @@ export const config = {
     adminName: process.env.ADMIN_NAME || 'Administrator',
     // Opt-in: also load the demo accounts (password "password") + sample data. Never enable on a public site you care about.
     seedDemo: process.env.SEED_DEMO === 'true',
+    // Opt-in: load the quarter master data (idempotent, safe to leave on).
+    importQuarters: process.env.IMPORT_QUARTERS === 'true',
   },
 
   auth: {
@@ -96,6 +98,13 @@ export const config = {
     eligibility: {
       minServiceYears: { I: 0, II: 0, III: 3, IV: 7, V: 12, VI: 18 },
       blockIfExistingAllotment: true,
+    },
+    // Quarter master data (database/data/quarters-type*.json): location given to every imported quarter
+    masterData: {
+      dir: path.resolve(root, '..', 'database', 'data'),
+      zone: process.env.MASTER_ZONE || 'Northern Railway',
+      division: process.env.MASTER_DIVISION || 'Delhi',
+      station: process.env.MASTER_STATION || 'New Delhi',
     },
     // Module 10 - retention
     retirement: {

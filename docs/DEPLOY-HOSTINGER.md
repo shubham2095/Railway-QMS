@@ -147,3 +147,11 @@ Then put nginx (or Caddy) in front with a server block for your subdomain proxyi
 [Express deploy settings](https://docs.hostinger.com/node.js/overview-1/express) ·
 [Environment variables](https://www.hostinger.com/support/how-to-add-environment-variables-during-node-js-application-deployment/) ·
 [Connecting a MySQL database](https://www.hostinger.com/support/connecting-a-hostinger-mysql-database-to-a-node-js-application/)
+
+## Quarter master data
+
+The real quarter list (Excel -> JSON) lives in `database/data/quarters-type*.json` (one file per quarter type; Type I is in).
+To load it on the live site set the environment variable `IMPORT_QUARTERS=true` and restart: every start then syncs the
+file into `quarters` (idempotent - re-running never duplicates rows or overwrites status/occupant of quarters already in use).
+Locally: `npm run db:quarters` in `backend/`. Optional: `MASTER_ZONE`, `MASTER_DIVISION`, `MASTER_STATION`
+(defaults: Northern Railway / Delhi / New Delhi) set the location stamped on imported quarters.

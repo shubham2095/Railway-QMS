@@ -81,6 +81,8 @@ const COLONY_PREFERENCES_DDL = `CREATE TABLE application_colony_preferences (
 
 // Order matters: later entries may reference columns added by earlier ones (AFTER ...).
 const MIGRATIONS = [
+  addColumn('quarters', 'pool', 'VARCHAR(50) NULL AFTER floor'),
+  addColumn('quarters', 'remarks', 'VARCHAR(500) NULL AFTER pool'),
   addColumn('employee_profiles', 'pf_number', 'VARCHAR(50) NULL AFTER employee_id'),
   addColumn('employee_profiles', 'father_name', 'VARCHAR(120) NULL AFTER pf_number'),
   addColumn('employee_profiles', 'date_of_birth', 'DATE NULL AFTER father_name'),

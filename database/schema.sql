@@ -123,6 +123,8 @@ CREATE TABLE quarters (
   station             VARCHAR(255) NULL,
   block               VARCHAR(255) NULL,
   floor               VARCHAR(255) NULL,
+  pool                VARCHAR(50) NULL,                 -- Div / HQ / RPF / Med ...
+  remarks             VARCHAR(500) NULL,                -- occupant / condition note from the master data
   status              VARCHAR(255) NOT NULL DEFAULT 'vacant',
   current_occupant_id BIGINT UNSIGNED NULL,
   created_at          DATETIME NULL,

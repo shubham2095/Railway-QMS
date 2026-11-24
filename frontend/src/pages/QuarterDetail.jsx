@@ -44,8 +44,10 @@ export default function QuarterDetail() {
                   <Dl label="Division">{quarter.division}</Dl>
                   <Dl label="Block">{quarter.block}</Dl>
                   <Dl label="Floor">{quarter.floor}</Dl>
+                  <Dl label="Pool">{quarter.pool}</Dl>
                   <Dl label="Address" className="col-span-2">{quarter.address}</Dl>
                   <Dl label="Current Occupant">{quarter.occupant_name}</Dl>
+                  <Dl label="Remarks (master data)" className="col-span-2">{quarter.remarks}</Dl>
                 </dl>
               </Card>
 

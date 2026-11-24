@@ -56,6 +56,19 @@ for ws in wb:
             pf_number=None, unit='GAZETTED', list_name=list_name, staff_kind='gazetted',
             present_accommodation=sp(r[c_present]) or None if c_present is not None else None,
             preferred_colonies=' | '.join(places) or None, contact_no=contact, remarks='; '.join(notes) or None, sheet_no=seq))
+# the same officer twice on the same list -> keep the entry with the OLDEST date (the later one is dropped)
+import csv
+def person(n): return re.sub(r'[^a-z]', '', re.sub(r'^(sh|smt|ms|mr|mrs|dr)\b\.?', '', n.lower().strip()))
+kept, dropped = {}, []
+for x in sorted(rows_out, key=lambda x: (x['request_date'], x['sheet_no'])):
+    k = (x['list_name'], person(x['name']))
+    if k in kept: dropped.append((kept[k], x))
+    else: kept[k] = x
+rows_out = [x for x in rows_out if kept[(x['list_name'], person(x['name']))] is x]
+with open(f'{out}/gazetted-duplicates-report.csv', 'w', newline='', encoding='utf-8-sig') as fh:
+    w = csv.writer(fh); w.writerow(['List', 'Name', 'KEPT date', 'DROPPED date', 'DROPPED designation'])
+    for k, d in dropped: w.writerow([k['list_name'], k['name'], k['request_date'], d['request_date'], d['designation']])
+print('gazetted duplicates dropped:', [(k['name'], k['list_name'], k['request_date'], d['request_date']) for k, d in dropped])
 # unique request numbers (same officer twice on a list with the same date)
 seen = {}
 for x in rows_out:

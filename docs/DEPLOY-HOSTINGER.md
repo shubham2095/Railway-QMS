@@ -173,9 +173,12 @@ More quarter types: `python3 -I database/data/convert_quarters.py database/data 
 the remarks; office / union / barrack quarters are loaded as *reserved*, unsafe / dismantled / sealed ones as *under maintenance*.
 A quarter is identified by station + colony + number + type, so Type I and Type II may share a number in the same colony.
 
-### Removing the old waiting list
+### Old waiting list (pending requests): how it is built
 
-The imported pending requests are **not** in the repository any more (`database/data/waitlist-*.json` were removed; they stay in
-git history, e.g. commit `18ab1d2`, and can be regenerated with the converters). To delete the rows that are already in a
-database set `CLEAR_WAITING_LIST=true`, restart once (logs: `[waitlist] CLEAR_WAITING_LIST=true: removed N pending requests`),
-then remove the variable. Locally: `npm run db:clear-waitlist`.
+`python3 -I database/data/build_waitlist.py database/data <zip-folders-or-xlsx...>` reads every "House Requisition" report
+(both layouts) and writes `waitlist-<UNIT>.json` plus `waitlist-duplicates-report.csv`. Rules: the same request number in
+several reports counts once; the same PF number with the same quarter type more than once keeps only the **oldest** request
+(later ones are dropped and listed in the CSV); the same PF in different quarter types is kept; rows without a PF are kept.
+Gazetted lists: `convert_gazetted.py` (same "oldest wins" rule per list, report in `gazetted-duplicates-report.csv`).
+Loaded by `IMPORT_QUARTERS=true`. To empty the list in a database set `CLEAR_WAITING_LIST=true` for one restart, then remove it
+(locally: `npm run db:clear-waitlist`).

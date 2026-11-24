@@ -9,11 +9,16 @@ def nice(s):
 CAT = {'essential': 'essential', 'non essential': 'non_essential', 'non-essential': 'non_essential'}
 by_unit = {}
 for f in files:
-    ws = openpyxl.load_workbook(f, read_only=True)['House Requisition Details']
+    wb = openpyxl.load_workbook(f, read_only=True)
+    ws = wb['House Requisition Details']
+    # A row without a type takes the type the report was run for ("House Type: TYPE- II").
+    head = ' '.join(str(c) for row in wb['Report Information'].iter_rows(values_only=True) for c in row if c) if 'Report Information' in wb.sheetnames else ''
+    m = re.search(r'House Type:\s*TYPE-?\s*([IVX]+)', head)
+    report_type = m.group(1) if m else ''
     for r in ws.iter_rows(min_row=2, values_only=True):
         if not r[1]: continue
         req = sp(r[1]); unit = req.split('/')[1] if req.count('/') >= 2 else 'NA'
-        qt = re.sub(r'^TYPE-?\s*', '', sp(r[5]).upper())
+        qt = re.sub(r'^TYPE-?\s*', '', sp(r[5]).upper()) or report_type
         by_unit.setdefault(unit, {})[req] = dict(
             request_no=req, request_date=r[2].strftime('%Y-%m-%d') if r[2] else None, name=nice(r[3]) or None,
             designation=nice(r[4]) or None, quarter_type=qt, category=CAT.get(sp(r[6]).lower()),

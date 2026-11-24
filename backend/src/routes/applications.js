@@ -154,7 +154,6 @@ router.get('/:id', async (req, res) => {
     `SELECT u.name, p.employee_id FROM employee_profiles p JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
     [app.employee_profile_id],
   );
-  const profileRow = await find('employee_profiles', app.employee_profile_id);
   const entry = await first('SELECT `rank` FROM waiting_list_entries WHERE quarter_application_id = ?', [app.id]);
   const documents = await query(
     `SELECT id, category, title, original_name, mime, size, created_at FROM documents
@@ -178,7 +177,6 @@ router.get('/:id', async (req, res) => {
       rank: entry?.rank ?? null,
       colony_preferences: (await preferencesFor([app.id])).get(app.id) ?? [],
       profile_id: app.employee_profile_id,
-      profile_verification_status: profileRow?.verification_status ?? null,
       verified_by_name: await nameOf(app.verified_by),
       forwarded_by_name: await nameOf(app.forwarded_by),
       decided_by_name: await nameOf(app.decided_by),
@@ -194,11 +192,6 @@ router.get('/:id', async (req, res) => {
 router.post('/:id/verify', requirePermission('application.verify'), async (req, res) => {
   const app = await loadApplication(req.params.id);
   if (app.status !== 'submitted') throw new DomainError('Only submitted applications can be verified.', 'status');
-  // The clerk checks the employee's details first, then the application.
-  const owner = await find('employee_profiles', app.employee_profile_id);
-  if (owner?.verification_status !== 'verified') {
-    throw new DomainError("Verify the employee's profile first (Employees → open the profile → Verify).", 'profile');
-  }
   const { remarks } = validate(z.object({ remarks: optStr('remarks', 1000) }), req.body);
 
   const status = await transaction(async () => {
@@ -232,8 +225,6 @@ router.post('/:id/forward', requirePermission('application.verify'), async (req,
       'status',
     );
   }
-  const owner = await find('employee_profiles', app.employee_profile_id);
-  if (owner?.verification_status !== 'verified') throw new DomainError("The employee's profile is not verified.", 'profile');
   await applications.forwardApplication(app, req.user, remarks ?? null);
   res.json({ message: 'Forwarded to the admin for approval.' });
 });

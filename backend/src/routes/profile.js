@@ -108,16 +108,6 @@ router.put('/', async (req, res) => {
     retirement_date: data.retirement_date,
   };
 
-  // Any real change sends the profile back to the clerk for (re-)verification; saving unchanged data does not.
-  const prev = user.profile;
-  const changed =
-    !prev ||
-    data.name !== user.name ||
-    data.mobile !== user.mobile ||
-    Object.entries(fields).some(([k, v]) => String(prev[k] ?? '') !== String(v ?? ''));
-  const wasVerified = prev?.verification_status === 'verified';
-  if (changed) Object.assign(fields, { verification_status: 'pending', verified_by: null, verified_at: null, verification_remarks: null });
-
   await transaction(async () => {
     // Name and phone come from signup and may be corrected here; the email (login identity) is never changed.
     await update('users', user.id, { name: data.name, mobile: data.mobile });
@@ -127,10 +117,7 @@ router.put('/', async (req, res) => {
   });
 
   await audit('profile.update', subject('user', user.id), 'Employee profile updated');
-  res.json({
-    message: changed && wasVerified ? 'Profile saved. The clerk will verify the changes again.' : 'Profile saved.',
-    needs_verification: changed || prev?.verification_status !== 'verified',
-  });
+  res.json({ message: 'Profile saved.' });
 });
 
 // POST /api/profile/family

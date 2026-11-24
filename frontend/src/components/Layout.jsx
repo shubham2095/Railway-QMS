@@ -105,7 +105,7 @@ export default function Layout() {
 
             {hasRole('quarter_clerk', 'estate_officer', 'admin', 'super_admin') && (
               <Section title="Estate Office">
-                <NavItem to="/employees" icon="users" badge={badges.profiles_to_verify ?? 0} onClick={close}>Employees</NavItem>
+                <NavItem to="/employees" icon="users" onClick={close}>Employees</NavItem>
                 <NavItem to="/quarters" icon="building" onClick={close}>Quarter Master</NavItem>
                 {hasPermission('application.decide') && <NavItem to="/approval-queue" icon="list" badge={decideBadge} onClick={close}>Approval Queue</NavItem>}
                 <NavItem to="/waiting-list" icon="list" onClick={close}>Approved Applicants</NavItem>

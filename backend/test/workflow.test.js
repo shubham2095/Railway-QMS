@@ -68,18 +68,13 @@ const fullProfile = (over = {}) => ({
 
 const as = {};
 
-/** id of an employee's profile as the clerk sees it in the Employees queue */
+/** id of an employee's profile as the clerk sees it in the Employees directory */
 const profileIdOf = async (employeeId) => {
   const r = await as.clerk.get(`/api/employees?q=${employeeId}`);
   assert.equal(r.status, 200, r.text);
   const row = r.json.data.find((p) => p.employee_id === employeeId);
-  assert.ok(row, `profile ${employeeId} is in the clerk's queue`);
+  assert.ok(row, `profile ${employeeId} is in the directory`);
   return row.id;
-};
-/** the clerk verifies an employee's profile (no-op if it already is) */
-const verifyProfileOf = async (employeeId) => {
-  const r = await as.clerk.post(`/api/employees/${await profileIdOf(employeeId)}/verify`);
-  assert.ok([200, 422].includes(r.status), r.text);
 };
 before(async () => {
   server = createApp().listen(0);
@@ -284,11 +279,6 @@ describe('application lifecycle (new employee, upload, verify, ineligible)', () 
     const badges = (await as.clerk.get('/api/auth/me')).json.badges;
     assert.equal(badges.applications_to_verify, 1);
 
-    // the clerk checks the employee first: the application cannot be verified until the profile is
-    const blocked = await as.clerk.post(`/api/applications/${appId}/verify`);
-    assert.equal(blocked.status, 422);
-    assert.match(blocked.json.errors.profile[0], /Verify the employee's profile first/);
-    await verifyProfileOf('EMP5555');
 
     assert.equal((await as.clerk.post(`/api/applications/${appId}/verify`)).status, 200);
     assert.equal((await as.clerk.post(`/api/applications/${appId}/verify`)).status, 422, 'cannot verify twice');
@@ -838,7 +828,6 @@ describe('employee self-signup', () => {
     assert.equal((await other.get(`/api/applications/${ok.json.id}`)).status, 403);
 
     // after verification the applicant joins the queue with the choices visible to staff
-    await verifyProfileOf('EMP7777');
     const fin = await apply({ colony_1: 'Saket', colony_2: 'Hauz Khas', colony_3: 'Connaught Place' });
     assert.equal((await as.clerk.post(`/api/applications/${fin.json.id}/verify`)).status, 200);
     const entry = (await as.admin.get('/api/approval-queue?type=III')).json.entries.find((e) => e.application.id === fin.json.id);
@@ -899,123 +888,61 @@ describe('employee self-signup', () => {
   });
 });
 
-describe('clerk: verify employee profiles, then check applications', () => {
+describe('clerk: checks the application (not the profile) and approves it into the admin line', () => {
   let sita, sitaProfileId, waitlistedApp;
   before(async () => {
     sita = client();
     await sita.login('sita@example.com', 'longenough1');
-    // an earlier test already had her verified: start this suite from "waiting for the clerk"
-    await pool.query("UPDATE employee_profiles SET verification_status = 'pending', verified_by = NULL, verified_at = NULL, verification_remarks = NULL WHERE employee_id = 'EMP7777'");
     sitaProfileId = await profileIdOf('EMP7777');
   });
-  const sitaProfile = (over = {}) => fullProfile({ name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', pf_number: 'PF7777', ...over });
 
-  test('who may do what', async () => {
+  test('the Employees page is a read-only directory; profile verification no longer exists', async () => {
     assert.equal((await as.employee.get('/api/employees')).status, 403);
-    assert.equal((await as.employee.post(`/api/employees/${sitaProfileId}/verify`)).status, 403);
     assert.equal((await as.estate.get('/api/employees')).status, 200, 'staff can look');
     assert.equal((await as.admin.get('/api/employees')).status, 200, 'admin can look');
-    assert.equal((await as.estate.post(`/api/employees/${sitaProfileId}/verify`)).status, 403, 'but only the clerk verifies');
-    assert.equal((await as.admin.post(`/api/employees/${sitaProfileId}/verify`)).status, 403);
+    // the verify / request-changes endpoints are gone for everyone
+    for (const who of ['clerk', 'admin', 'estate']) {
+      assert.equal((await as[who].post(`/api/employees/${sitaProfileId}/verify`)).status, 404);
+      assert.equal((await as[who].post(`/api/employees/${sitaProfileId}/request-changes`, { remarks: 'x' })).status, 404);
+    }
     const me = (await as.clerk.get('/api/auth/me')).json;
-    assert.ok(me.user.permissions.includes('profile.verify'));
-    assert.equal((await as.estate.get('/api/auth/me')).json.badges.profiles_to_verify, 0, 'no badge without the permission');
-  });
+    assert.ok(!me.user.permissions.includes('profile.verify'), 'the clerk has no profile.verify permission');
+    assert.ok(me.user.permissions.includes('application.verify'), 'the clerk verifies applications');
+    assert.equal(me.badges.profiles_to_verify, undefined);
 
-  test('the queue lists complete employee profiles only, with filters, search and counts', async () => {
     const all = (await as.clerk.get('/api/employees')).json;
     const ids = all.data.map((p) => p.employee_id);
     assert.ok(ids.includes('EMP7777') && ids.includes('EMP1001'));
-    assert.ok(!ids.includes('CLK2001'), 'staff accounts are not in the employee queue');
-    assert.equal(all.counts.pending + all.counts.verified + all.counts.changes_requested, all.meta.total);
-
-    const pending = (await as.clerk.get('/api/employees?status=pending')).json;
-    assert.ok(pending.data.every((p) => p.verification_status === 'pending'));
-    assert.ok(pending.data.some((p) => p.employee_id === 'EMP7777'));
-    assert.equal(pending.data.find((p) => p.employee_id === 'EMP7777').name, 'Sita Verma');
+    assert.ok(!ids.includes('CLK2001'), 'staff accounts are not in the employee directory');
     assert.deepEqual((await as.clerk.get('/api/employees?q=PF7777')).json.data.map((p) => p.employee_id), ['EMP7777']);
     assert.deepEqual((await as.clerk.get('/api/employees?q=sita@example')).json.data.map((p) => p.employee_id), ['EMP7777']);
-
-    // the clerk's sidebar badge is the number of pending profiles
-    assert.equal((await as.clerk.get('/api/auth/me')).json.badges.profiles_to_verify, pending.meta.total);
-
-    // a profile that is not complete yet is not queued
+    // a profile that is not complete yet is not listed
     await pool.query("UPDATE employee_profiles SET pf_number = NULL WHERE employee_id = 'EMP7777'");
     assert.ok(!(await as.clerk.get('/api/employees?q=EMP7777')).json.data.length);
     await pool.query("UPDATE employee_profiles SET pf_number = 'PF7777' WHERE employee_id = 'EMP7777'");
   });
 
-  test('detail page data', async () => {
+  test('detail page data; editing the profile needs nobody\'s re-verification', async () => {
     const d = (await as.clerk.get(`/api/employees/${sitaProfileId}`)).json;
     assert.equal(d.user.email, 'sita@example.com');
     assert.equal(d.profile.pf_number, 'PF7777');
     assert.equal(d.profile.father_name, 'Mohan Lal');
     assert.ok(d.applications.length >= 1);
-    assert.equal(d.verification.status, 'pending');
+    assert.equal(d.verification, undefined);
     assert.equal((await as.clerk.get('/api/employees/999999')).status, 404);
-  });
 
-  test('send back for changes -> employee sees why -> fixing it queues it again', async () => {
-    const blank = await as.clerk.post(`/api/employees/${sitaProfileId}/request-changes`, { remarks: '   ' });
-    assert.equal(blank.status, 422);
-    assert.ok(blank.json.errors.remarks, 'remarks are required');
-
-    const res = await as.clerk.post(`/api/employees/${sitaProfileId}/request-changes`, { remarks: 'Date of birth does not match the service record.' });
-    assert.equal(res.status, 200, res.text);
-    assert.equal((await as.clerk.post(`/api/employees/${sitaProfileId}/request-changes`, { remarks: 'again' })).status, 422, 'already sent back');
-
-    const v = (await sita.get('/api/profile')).json.verification;
-    assert.equal(v.status, 'changes_requested');
-    assert.equal(v.remarks, 'Date of birth does not match the service record.');
-    assert.equal(v.verified_by_name, 'Sunita Devi');
-
-    // saving without changing anything keeps it waiting for the real correction
-    assert.equal((await sita.put('/api/profile', sitaProfile({ date_of_joining: (await sita.get('/api/profile')).json.profile.date_of_joining, retirement_date: (await sita.get('/api/profile')).json.profile.retirement_date, date_of_birth: (await sita.get('/api/profile')).json.profile.date_of_birth, grade_pay: 2800 }))).status, 200);
-    assert.equal((await sita.get('/api/profile')).json.verification.status, 'changes_requested');
-
-    // the employee was told
-    const note = (await as.admin.get('/api/notifications?channel=email')).json.data.find((n) => n.event === 'profile_changes_requested');
-    assert.ok(note && /Date of birth does not match/.test(note.message) && note.user_name === 'Sita Verma');
-
-    // a real correction puts it back in the queue and clears the old remarks
-    const fix = await sita.put('/api/profile', sitaProfile({ date_of_birth: isoYears(-31) }));
-    assert.equal(fix.status, 200, fix.text);
-    const after = (await sita.get('/api/profile')).json.verification;
-    assert.equal(after.status, 'pending');
-    assert.equal(after.remarks, null);
-    assert.equal((await as.clerk.get(`/api/employees/${sitaProfileId}`)).json.profile.date_of_birth, isoYears(-31));
-  });
-
-  test('verify -> employee sees it -> any later change needs re-verification', async () => {
-    assert.equal((await sita.get('/api/auth/me')).json.user.profile.verification_status, 'pending');
-    const ok = await as.clerk.post(`/api/employees/${sitaProfileId}/verify`);
-    assert.equal(ok.status, 200, ok.text);
-    assert.equal((await as.clerk.post(`/api/employees/${sitaProfileId}/verify`)).status, 422, 'already verified');
-    const v = (await sita.get('/api/profile')).json.verification;
-    assert.equal(v.status, 'verified');
-    assert.equal(v.verified_by_name, 'Sunita Devi');
-    assert.ok(v.verified_at);
-    assert.ok((await as.admin.get('/api/audit?action=profile.verify')).json.data.length >= 1);
-
-    // unchanged save: stays verified
     const p = (await sita.get('/api/profile')).json.profile;
-    const same = await sita.put('/api/profile', sitaProfile({
-      date_of_birth: p.date_of_birth, date_of_joining: p.date_of_joining, retirement_date: p.retirement_date, grade_pay: p.grade_pay,
-      pay_level: p.pay_level, designation: p.designation, current_address: p.current_address, father_name: p.father_name,
+    const res = await sita.put('/api/profile', fullProfile({
+      name: 'Sita Verma', mobile: '9811111111', employee_id: 'EMP7777', pf_number: 'PF7777',
+      date_of_birth: p.date_of_birth, date_of_joining: p.date_of_joining, retirement_date: p.retirement_date,
+      grade_pay: p.grade_pay, pay_level: p.pay_level, designation: p.designation, father_name: p.father_name, current_address: 'New address, Sector 5, Delhi',
     }));
-    assert.equal(same.status, 200, same.text);
-    assert.equal((await sita.get('/api/profile')).json.verification.status, 'verified');
-
-    // changing the address (or anything) sends it back to the clerk
-    const changed = await sita.put('/api/profile', sitaProfile({
-      date_of_birth: p.date_of_birth, date_of_joining: p.date_of_joining, retirement_date: p.retirement_date, grade_pay: p.grade_pay,
-      pay_level: p.pay_level, designation: p.designation, father_name: p.father_name, current_address: 'New address, Sector 5, Delhi',
-    }));
-    assert.match(changed.json.message, /verify the changes again/);
-    assert.equal((await sita.get('/api/profile')).json.verification.status, 'pending');
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.json.message, 'Profile saved.');
+    assert.equal((await as.clerk.get(`/api/employees/${sitaProfileId}`)).json.profile.current_address, 'New address, Sector 5, Delhi');
   });
 
-  test('applications: the clerk can only proceed once the profile is verified; the clerk can also reject', async () => {
+  test('applications: the clerk checks and approves straight away (no profile step); the clerk can also reject', async () => {
     const apply = async () => {
       await withdrawOpen();
       const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
@@ -1025,12 +952,7 @@ describe('clerk: verify employee profiles, then check applications', () => {
     };
     const a1 = await apply();
 
-    // profile is pending again -> the application cannot be verified yet
-    const blocked = await as.clerk.post(`/api/applications/${a1}/verify`);
-    assert.equal(blocked.status, 422);
-    assert.ok(blocked.json.errors.profile);
     const detail = (await as.clerk.get(`/api/applications/${a1}`)).json.application;
-    assert.equal(detail.profile_verification_status, 'pending');
     assert.equal(detail.profile_id, sitaProfileId);
 
     // reject: remarks required, employee/others cannot, only while it is waiting for the clerk
@@ -1046,8 +968,7 @@ describe('clerk: verify employee profiles, then check applications', () => {
     const note = (await as.admin.get('/api/notifications?channel=email')).json.data.find((n) => n.event === 'application_rejected');
     assert.ok(note && /Service certificate is missing/.test(note.message));
 
-    // verified profile -> the clerk can proceed
-    assert.equal((await as.clerk.post(`/api/employees/${sitaProfileId}/verify`)).status, 200);
+    // the clerk approves another one: no profile step, it goes straight into the admin's line
     const a2 = await apply();
     assert.equal((await as.clerk.post(`/api/applications/${a2}/verify`)).status, 200);
     assert.equal((await sita.get(`/api/applications/${a2}`)).json.application.status, 'forwarded');

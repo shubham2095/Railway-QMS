@@ -1,37 +1,22 @@
-import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import { Async, Card, Dl, ErrorBanner, Pill, VerificationPill } from '../components/ui.jsx';
-import { api } from '../lib/api.js';
-import { useAuth } from '../lib/auth.jsx';
+import { Async, Card, Dl, Pill } from '../components/ui.jsx';
 import { CATEGORIES, SERVICE_TYPES, quarterTypeLabel } from '../lib/constants.js';
-import { useFlash } from '../lib/flash.jsx';
-import { fmtDate, fmtDateTime, inr } from '../lib/format.js';
-import { useAction, useApi } from '../lib/hooks.js';
+import { fmtDate, inr } from '../lib/format.js';
+import { useApi } from '../lib/hooks.js';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
   const q = useApi(`/employees/${id}`);
-  const { hasPermission, refresh } = useAuth();
-  const flash = useFlash();
-  const act = useAction();
-  const [remarks, setRemarks] = useState('');
-  useHeader(q.data ? q.data.user.name : 'Employee', 'Employee profile — review and verify');
-
-  const run = (fn, message) => async () => {
-    const res = await act.run(fn);
-    if (res) { flash.success(message); setRemarks(''); q.reload(); refresh(); }
-  };
+  useHeader(q.data ? q.data.user.name : 'Employee', 'Employee profile');
 
   return (
     <Async q={q}>
-      {({ profile: p, user, family_members: family, applications, verification: v }) => {
-        const canVerify = hasPermission('profile.verify');
+      {({ profile: p, user, family_members: family, applications }) => {
         return (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
-              <ErrorBanner error={act.error} />
-              <Card title="Personal details" actions={<VerificationPill status={v.status} />}>
+              <Card title="Personal details">
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
                   <Dl label="Full name">{user.name}</Dl>
                   <Dl label="Email ID">{user.email}</Dl>
@@ -82,37 +67,6 @@ export default function EmployeeDetail() {
             </div>
 
             <div className="space-y-6">
-              <Card title="Verification">
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between"><span className="text-slate-400">Status</span><VerificationPill status={v.status} /></div>
-                  {v.verified_at && (
-                    <div className="flex items-center justify-between"><span className="text-slate-400">{v.status === 'verified' ? 'Verified' : 'Reviewed'}</span>
-                      <span className="text-right text-ink">{v.verified_by_name ?? '—'}<br /><span className="text-[11px] text-slate-400">{fmtDateTime(v.verified_at)}</span></span></div>
-                  )}
-                  {v.status === 'changes_requested' && v.remarks && (
-                    <div className="rounded-lg bg-rose-50 px-3 py-2 text-rose-700"><span className="text-[11px] font-semibold uppercase tracking-wide">Changes asked for</span><p className="mt-0.5">{v.remarks}</p></div>
-                  )}
-                </div>
-
-                {canVerify ? (
-                  <div className="mt-4 space-y-3 border-t border-edge pt-4">
-                    {v.status !== 'verified' && (
-                      <button className="btn-ok w-full" disabled={act.busy} onClick={run(() => api.post(`/employees/${id}/verify`), 'Profile verified.')}>Verify profile</button>
-                    )}
-                    {v.status !== 'changes_requested' && (
-                      <>
-                        <textarea rows="3" className="input mt-0" placeholder="What should the employee correct? (required)" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-                        <button className="btn-signal w-full" disabled={act.busy || !remarks.trim()}
-                          onClick={run(() => api.post(`/employees/${id}/request-changes`, { remarks }), 'Sent back to the employee for changes.')}>Request changes</button>
-                      </>
-                    )}
-                    {v.status === 'changes_requested' && <p className="text-xs text-slate-500">Waiting for the employee to correct the profile. It returns to the queue when they save changes.</p>}
-                  </div>
-                ) : (
-                  <p className="mt-4 border-t border-edge pt-4 text-xs text-slate-500">Only the Quarter Clerk can verify profiles.</p>
-                )}
-              </Card>
-
               <Card title="Applications">
                 {applications.length === 0 ? <p className="text-sm text-slate-400">No applications yet.</p> : (
                   <div className="space-y-2">

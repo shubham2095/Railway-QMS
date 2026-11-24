@@ -32,7 +32,6 @@ const PERMISSIONS = {
     'application.verify': 'Verify applications',
     'application.decide': 'Approve/reject applications',
   },
-  profile: { 'profile.verify': 'Verify employee profiles' },
   quarter: { 'quarter.manage': 'Manage quarter master data' },
   allotment: {
     'allotment.approve': 'Offer/approve allotments',
@@ -55,7 +54,7 @@ const PERMISSIONS = {
 
 const ROLE_PERMISSIONS = {
   employee: [],
-  quarter_clerk: ['profile.verify', 'application.verify', 'quarter.manage', 'allotment.approve', 'allotment.possession', 'vacation.clerk_inspection'],
+  quarter_clerk: ['application.verify', 'quarter.manage', 'allotment.approve', 'allotment.possession', 'vacation.clerk_inspection'],
   estate_officer: ['application.decide', 'allotment.approve', 'allotment.possession', 'vacation.estate_officer', 'reports.view'],
   electrical_dept: ['vacation.electrical'],
   water_dept: ['vacation.water'],
@@ -80,6 +79,8 @@ export async function seedRolesAndPermissions() {
       for (const p of permSlugs) await query('INSERT INTO permission_role (permission_id, role_id) VALUES (?, ?)', [permIds[p], roleIds[roleSlug]]);
     }
   });
+  // Permissions that no longer exist in the catalogue (e.g. profile.verify) are removed.
+  await query('DELETE FROM permissions WHERE slug NOT IN (?)', [Object.keys(permIds)]);
   return roleIds;
 }
 

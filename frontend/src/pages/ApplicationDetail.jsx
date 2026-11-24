@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import { Async, Card, Dl, ErrorBanner, Icon, Pill, VerificationPill } from '../components/ui.jsx';
+import { Async, Card, Dl, ErrorBanner, Icon, Pill } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { SERVICE_TYPES, quarterTypeLabel } from '../lib/constants.js';
@@ -157,22 +157,16 @@ export default function ApplicationDetail() {
               {(canVerify || canDecide || hasRole('admin', 'super_admin')) && a.profile_id && (
                 <Card title="Employee profile">
                   <div className="flex items-center justify-between gap-2">
-                    <VerificationPill status={a.profile_verification_status} />
+                    <span className="text-sm text-slate-500">Details entered by the employee</span>
                     <Link to={`/employees/${a.profile_id}`} className="btn-ghost btn-xs">Open profile</Link>
                   </div>
                 </Card>
               )}
               {canVerify && a.status === 'submitted' && (
                 <Card title="Clerk check">
-                  {a.profile_verification_status !== 'verified' && (
-                    <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                      Verify the employee&apos;s profile first, then check this application.{' '}
-                      <Link to={`/employees/${a.profile_id}`} className="font-semibold underline">Open profile</Link>
-                    </div>
-                  )}
                   <p className="mb-3 text-sm text-slate-500">Check the employee&apos;s details and documents. When you approve, the eligibility &amp; priority engine runs and, if the applicant is eligible, the application goes to the admin <b>automatically</b>.</p>
                   <textarea rows="2" className="input mt-0" placeholder="Note for the admin (optional)" value={forwardRemarks} onChange={(e) => setForwardRemarks(e.target.value)} />
-                  <button className="btn-primary mt-3 w-full" disabled={act.busy || a.profile_verification_status !== 'verified'}
+                  <button className="btn-primary mt-3 w-full" disabled={act.busy}
                     onClick={run(() => api.post(`/applications/${id}/verify`, { remarks: forwardRemarks }), (res) => res.message)}>Approve &amp; forward to admin</button>
                   {rejectBlock}
                 </Card>

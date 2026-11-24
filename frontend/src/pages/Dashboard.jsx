@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import ProfileStatusBanner from '../components/ProfileStatusBanner.jsx';
 import { Async, Card, Pill, Stat } from '../components/ui.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { STATUS_TONES, quarterTypeLabel } from '../lib/constants.js';
@@ -13,7 +12,7 @@ function Badge({ n }) {
 
 export default function Dashboard() {
   useHeader('Dashboard', 'Estate overview and your quarter status');
-  const { badges, hasPermission, hasRole, user } = useAuth();
+  const { badges } = useAuth();
   const q = useApi('/dashboard');
 
   return (
@@ -68,11 +67,6 @@ export default function Dashboard() {
 
                   <Card title="Quick actions">
                     <div className="space-y-2 text-sm">
-                      {hasPermission('profile.verify') && (
-                        <Link to="/employees?status=pending" className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">
-                          <span>Verify employee profiles</span><Badge n={badges.profiles_to_verify ?? 0} />
-                        </Link>
-                      )}
                       <Link to="/applications" className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 hover:bg-canvas">
                         <span>Review applications</span><Badge n={review} />
                       </Link>
@@ -86,8 +80,6 @@ export default function Dashboard() {
                 </div>
               </>
             )}
-
-            {d.has_profile && hasRole('employee') && <ProfileStatusBanner profile={user.profile} />}
 
             <div className="grid gap-6 lg:grid-cols-2">
               <Card title="My applications" actions={<Link to="/applications/new" className="rounded-md bg-rail px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink">New application</Link>}>

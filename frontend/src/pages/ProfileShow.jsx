@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useHeader } from '../components/Layout.jsx';
-import ProfileStatusBanner from '../components/ProfileStatusBanner.jsx';
 import { Async, Card, ErrorBanner, Icon, Pill, Required } from '../components/ui.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { useFlash } from '../lib/flash.jsx';
@@ -91,7 +90,6 @@ export default function ProfileShow() {
         return (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
-              <ProfileStatusBanner profile={profile} />
               <Card title="Service particulars" subtitle="Module 1 — Employee profile" actions={<Link to="/profile/edit" className="btn-ghost btn-xs">Edit</Link>}>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
                   {rows.map(([label, value, cls = '']) => (

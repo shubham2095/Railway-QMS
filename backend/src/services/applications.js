@@ -15,6 +15,14 @@ const userOfProfile = (profileId) =>
     [profileId],
   );
 
+/** An admin / super admin who applied for a quarter must not approve, reject or allot their own application. */
+export async function assertNotOwnApplication(application, actor, verb = 'decide on') {
+  const owner = await first('SELECT user_id FROM employee_profiles WHERE id = ?', [application.employee_profile_id]);
+  if (owner && owner.user_id === actor.id) {
+    throw new DomainError(`You cannot ${verb} your own application. Another admin or the super admin has to do that.`, 'application');
+  }
+}
+
 /** Module 3 - an employee submits an application. */
 export async function submitApplication(profile, user, data) {
   // One application at a time: an employee joins the line once, not once per quarter type / colony.
@@ -198,6 +206,7 @@ export function approveBatch(ids, officer, remarks = null) {
       if (application.status !== 'forwarded') {
         throw new DomainError(`Application ${application.reference_no} is no longer waiting for approval (${application.status}).`, 'application_ids');
       }
+      await assertNotOwnApplication(application, officer, 'approve');
       approved.push(await decideApplication(application, officer, true, remarks));
     }
     return approved;

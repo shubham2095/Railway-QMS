@@ -37,7 +37,7 @@ export default function ProfileShow() {
   return (
     <Async q={q}>
       {({ user, profile, family_members: family }) => {
-        if (!profile && !hasRole('employee')) {
+        if (!profile && !hasRole('employee', 'admin', 'super_admin')) {
           // Estate-office staff (clerk / admin / super admin) have an account, not an employee profile.
           return (
             <Card title="My account">

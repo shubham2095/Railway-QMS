@@ -67,6 +67,9 @@ const createSchema = z.object({
   });
 });
 
+// Who may apply for a quarter: employees, and the admin side (their application also goes through the clerk and the line).
+const APPLICANT_ROLES = ['employee', 'admin', 'super_admin'];
+
 const decideSchema = z.object({
   decision: reqEnum('decision', ['approve', 'reject']),
   remarks: optStr('remarks', 1000),
@@ -113,7 +116,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/applications  (multipart: fields + documents[] + document_categories[])
-router.post('/', requireRole('employee'), upload.array('documents', 10), async (req, res) => {
+router.post('/', requireRole(...APPLICANT_ROLES), upload.array('documents', 10), async (req, res) => {
   const files = req.files ?? [];
   try {
     const profile = req.user.profile;
@@ -181,6 +184,7 @@ router.get('/:id', async (req, res) => {
       employee_name: owner?.name ?? null,
       employee_id: owner?.employee_id ?? null,
       rank: entry?.rank ?? null,
+      is_mine: app.employee_profile_id === req.user.profile?.id,
       colony_preferences: (await preferencesFor([app.id])).get(app.id) ?? [],
       profile_id: app.employee_profile_id,
       verified_by_name: await nameOf(app.verified_by),
@@ -263,6 +267,7 @@ router.post('/:id/decide', requirePermission('application.decide'), async (req, 
   if (app.status !== 'forwarded') {
     throw new DomainError('An application can be approved or rejected only after the clerk has verified it and forwarded it.', 'status');
   }
+  await applications.assertNotOwnApplication(app, req.user, 'decide on');
   await applications.decideApplication(app, req.user, data.decision === 'approve', data.remarks ?? null);
   res.json({ message: 'Decision recorded.' });
 });

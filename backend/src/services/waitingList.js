@@ -57,7 +57,7 @@ export async function queue(quarterType, stage = 'pending') {
   const rows = await query(
     `SELECT w.id, w.quarter_application_id, w.quarter_type, w.station, w.priority_score, w.\`rank\`,
             w.waiting_since, a.reference_no, a.category, a.status AS application_status, a.decided_at,
-            u.name AS employee_name, p.employee_id, p.designation, p.grade_pay
+            u.name AS employee_name, p.user_id AS owner_user_id, p.employee_id, p.designation, p.grade_pay
        FROM waiting_list_entries w
        JOIN quarter_applications a ON a.id = w.quarter_application_id
        JOIN employee_profiles p ON p.id = a.employee_profile_id
@@ -81,6 +81,7 @@ export async function queue(quarterType, stage = 'pending') {
       status: r.application_status,
       decided_at: r.decided_at,
       employee_name: r.employee_name,
+      owner_user_id: r.owner_user_id,
       employee_id: r.employee_id,
       designation: r.designation,
       grade_pay: r.grade_pay,

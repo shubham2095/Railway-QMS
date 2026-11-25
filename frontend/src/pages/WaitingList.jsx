@@ -69,7 +69,7 @@ export default function WaitingList() {
   useHeader('Approved Applicants', 'Approved by the admin — waiting for a quarter to be offered');
   const [params] = useSearchParams();
   const q = useApi('/waiting-list', Object.fromEntries(params));
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: me } = useAuth();
   const [open, setOpen] = useState(null);
 
   return (
@@ -120,7 +120,7 @@ export default function WaitingList() {
                         </td>
                         <td className="td text-slate-600">{fmtDate(e.application.decided_at)}</td>
                         <td className="td"><Link to={`/applications/${e.application.id}`} className="mono text-xs text-rail hover:underline">{e.application.reference_no}</Link></td>
-                        <td className="td">{hasPermission('allotment.approve') && <button className="btn-primary px-3 py-1 text-xs" onClick={() => setOpen(open === e.id ? null : e.id)}>{open === e.id ? 'Close' : 'Offer quarter'}</button>}</td>
+                        <td className="td">{hasPermission('allotment.approve') && e.application.owner_user_id !== me.id && <button className="btn-primary px-3 py-1 text-xs" onClick={() => setOpen(open === e.id ? null : e.id)}>{open === e.id ? 'Close' : 'Offer quarter'}</button>}</td>
                       </tr>
                       {open === e.id && <tr><td colSpan={8} className="p-0"><OfferPanel entry={e} onClose={() => setOpen(null)} /></td></tr>}
                       </Fragment>

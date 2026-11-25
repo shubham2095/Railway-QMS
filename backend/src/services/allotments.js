@@ -33,6 +33,9 @@ export function offerQuarter(quarterId, entryId, approver) {
       throw new DomainError('A quarter can be offered only to an applicant the admin has approved.', 'waiting_list_entry_id');
     }
     const profile = await find('employee_profiles', application.employee_profile_id);
+    if (profile.user_id === approver.id) {
+      throw new DomainError('You cannot offer a quarter to yourself. Another admin or the super admin has to do that.', 'waiting_list_entry_id');
+    }
     const user = await first('SELECT id, name, email, mobile FROM users WHERE id = ?', [profile.user_id]);
 
     let allotmentId;

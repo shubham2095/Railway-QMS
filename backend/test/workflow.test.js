@@ -138,11 +138,11 @@ describe('authentication & RBAC', () => {
     assert.equal((await as.admin.post('/api/quarters', body)).status, 403, 'only the super admin / clerk change the quarter master');
     assert.equal((await as.admin.get('/api/quarters')).status, 200, 'but the admin can see the quarters to offer one');
     assert.equal((await as.admin.get('/api/approval-queue')).status, 200);
-    // only employees apply for quarters (and keep an employee profile): the admin side never does
-    for (const who of ['admin', 'super', 'clerk']) {
+    // the clerk (and the department desks) do not apply for quarters
+    {
       const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
-      assert.equal((await as[who].form('/api/applications', fd)).status, 403, `${who} cannot apply for a quarter`);
-      assert.equal((await as[who].put('/api/profile', {})).status, 403, `${who} has no employee profile`);
+      assert.equal((await as.clerk.form('/api/applications', fd)).status, 403, 'the clerk cannot apply for a quarter');
+      assert.equal((await as.clerk.put('/api/profile', {})).status, 403);
     }
     // the clerk no longer offers quarters; the super admin can do everything
     assert.equal((await as.clerk.post('/api/quarters/1/offer', { waiting_list_entry_id: 1 })).status, 403, 'the admin gives the quarter, not the clerk');
@@ -263,6 +263,42 @@ describe('super admin deletes an employee', () => {
     assert.equal((await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'deleteme@rqms.test', password: 'secret123' }) })).status >= 400, true, `deleted employee cannot log in (${login})`);
     const entry = (await as.super.get('/api/audit?action=user.delete')).json.data.find((a) => /Delete Me/.test(a.description ?? ''));
     assert.ok(entry, 'the deletion is in the audit trail');
+  });
+});
+
+describe('an admin can apply for a quarter too, but never decides on their own application', () => {
+  test('profile first, then the same clerk check and the same line; another admin / the super admin approves', async () => {
+    const mkFd = () => { const fd = new FormData(); fd.append('preferred_quarter_type', 'III'); fd.append('colony_1', 'Railway Colony A'); return fd; };
+    // the demo admin has a complete profile (an admin without one would be sent to complete it first)
+    const [[{ pid }]] = await pool.query("SELECT id AS pid FROM employee_profiles WHERE employee_id = 'ADM7001'");
+    const app = await as.admin.form('/api/applications', mkFd());
+    assert.equal(app.status, 201, app.text);
+    assert.equal((await as.clerk.post(`/api/applications/${app.json.id}/verify`)).status, 200, 'the clerk checks it like any other');
+    const line = (await as.super.get('/api/approval-queue?type=III')).json.entries;
+    const mine = line.find((e) => e.application.id === app.json.id);
+    assert.ok(mine, 'it stands in the line with everyone else');
+    assert.equal(mine.application.owner_user_id, (await as.admin.get('/api/auth/me')).json.user.id);
+
+    // the applicant cannot decide on it (single or bulk); somebody else can
+    assert.equal((await as.admin.post(`/api/applications/${app.json.id}/decide`, { decision: 'approve' })).status, 422);
+    const bulk = await as.admin.post('/api/approval-queue/approve', { application_ids: [app.json.id] });
+    assert.equal(bulk.status, 422);
+    assert.match(bulk.json.message, /your own application/);
+    assert.equal((await as.admin.get(`/api/applications/${app.json.id}`)).json.application.is_mine, true);
+    assert.equal((await as.super.post(`/api/applications/${app.json.id}/decide`, { decision: 'approve' })).status, 200);
+
+    // ... and the admin cannot allot a quarter to themselves
+    const q101 = (await as.admin.get('/api/quarters?q=Q-101')).json.data[0];
+    const entry = (await as.admin.get('/api/waiting-list?type=III')).json.entries.find((e) => e.application.id === app.json.id);
+    assert.ok(entry);
+    const self = await as.admin.post(`/api/quarters/${q101.id}/offer`, { waiting_list_entry_id: entry.id });
+    assert.equal(self.status, 422);
+    assert.match(self.json.message, /yourself/);
+
+    // leave the shared state as it was
+    await pool.query('DELETE FROM quarter_applications WHERE employee_profile_id = ?', [pid]);
+    const { reRank } = await import('../src/services/waitingList.js');
+    await reRank('III');
   });
 });
 

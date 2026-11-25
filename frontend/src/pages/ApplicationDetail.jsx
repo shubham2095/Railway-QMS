@@ -191,7 +191,12 @@ export default function ApplicationDetail() {
                   <button className="btn-ghost w-full" disabled={act.busy} onClick={run(() => api.post(`/applications/${id}/run-engine`), 'Engine re-evaluated.')}>Re-evaluate</button>
                 </Card>
               )}
-              {canDecide && a.status === 'forwarded' && (
+              {canDecide && a.is_mine && a.status === 'forwarded' && (
+                <Card title="Admin approval">
+                  <p className="text-sm text-slate-500">This is your own application, so another admin or the super admin approves it.</p>
+                </Card>
+              )}
+              {canDecide && !a.is_mine && a.status === 'forwarded' && (
                 <Card title="Admin approval">
                   {a.forward_remarks && (
                     <div className="mb-3 rounded-lg bg-canvas px-3 py-2 text-sm text-rail">

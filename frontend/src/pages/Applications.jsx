@@ -10,7 +10,7 @@ export default function Applications() {
   const filters = useFilters();
   const navigate = useNavigate();
   const q = useApi('/applications', Object.fromEntries(filters.params));
-  const { hasPermission, hasRole } = useAuth();
+  const { hasPermission, hasRole, canApply } = useAuth();
   const staff = hasPermission('application.verify') || hasPermission('application.decide') || hasRole('admin', 'super_admin');
   useHeader('Applications', staff ? 'Verify, run the engine and decide on quarter applications' : 'Your quarter applications');
 
@@ -30,7 +30,7 @@ export default function Applications() {
             {filters.any('status', 'type') && <button onClick={filters.clear} className="text-xs font-medium text-slate-500 hover:underline">Clear</button>}
           </div>
         ) : <div />}
-        {hasRole('employee', 'admin') ? <Link to="/applications/new" className="btn-signal">New application</Link> : <div />}
+        {canApply ? <Link to="/applications/new" className="btn-signal">New application</Link> : <div />}
       </div>
 
       <Async q={q}>

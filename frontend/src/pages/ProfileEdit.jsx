@@ -30,7 +30,7 @@ function Text({ label, name, f, set, mono = false, ...rest }) {
 export default function ProfileEdit() {
   const q = useApi('/profile');
   const navigate = useNavigate();
-  const { refresh, user: me, hasRole } = useAuth();
+  const { refresh, user: me, canApply } = useAuth();
   const firstTime = !me.profile_complete; // finishing the profile for the first time -> unlocks the app
   useHeader(firstTime ? 'Complete your profile' : 'Edit Profile', firstTime ? 'Step 1 — required before you can use the system' : 'Update your details');
   const save = useAction();
@@ -45,7 +45,7 @@ export default function ProfileEdit() {
     setF({ ...EMPTY, ...saved, name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '' });
   }, [q.data]);
   // staff accounts (no employee role, no profile) have nothing to complete
-  if (!hasRole('employee', 'admin') && !me.profile) return <Navigate to="/profile" replace />;
+  if (!canApply && !me.profile) return <Navigate to="/profile" replace />;
 
   const submit = async (e) => {
     e.preventDefault();

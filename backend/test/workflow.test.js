@@ -138,12 +138,10 @@ describe('authentication & RBAC', () => {
     assert.equal((await as.admin.post('/api/quarters', body)).status, 403, 'only the super admin / clerk change the quarter master');
     assert.equal((await as.admin.get('/api/quarters')).status, 200, 'but the admin can see the quarters to offer one');
     assert.equal((await as.admin.get('/api/approval-queue')).status, 200);
-    // the clerk (and the department desks) do not apply for quarters
+    // the super admin never applies (everybody else may; see the tests below)
     {
-      const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
-      assert.equal((await as.clerk.form('/api/applications', fd)).status, 403, 'the clerk cannot apply for a quarter');
-      assert.equal((await as.clerk.put('/api/profile', {})).status, 403);
-      assert.equal((await as.super.form('/api/applications', fd)).status, 403, 'the super admin does not apply for a quarter either');
+      const fd = () => { const f = new FormData(); f.append('preferred_quarter_type', 'II'); f.append('colony_1', 'Railway Colony C'); return f; };
+      assert.equal((await as.super.form('/api/applications', fd())).status, 403, 'the super admin does not apply for a quarter');
       assert.equal((await as.super.put('/api/profile', {})).status, 403);
     }
     // the clerk no longer offers quarters; the super admin can do everything
@@ -268,7 +266,7 @@ describe('super admin deletes an employee', () => {
   });
 });
 
-describe('an admin can apply for a quarter too (the super admin cannot), but never decides on their own application', () => {
+describe('everybody but the super admin can apply for a quarter, but nobody decides on their own application', () => {
   test('profile first, then the same clerk check and the same line; another admin / the super admin approves', async () => {
     const mkFd = () => { const fd = new FormData(); fd.append('preferred_quarter_type', 'III'); fd.append('colony_1', 'Railway Colony A'); return fd; };
     // the demo admin has a complete profile (an admin without one would be sent to complete it first)
@@ -298,6 +296,24 @@ describe('an admin can apply for a quarter too (the super admin cannot), but nev
     assert.match(self.json.message, /yourself/);
 
     // leave the shared state as it was
+    await pool.query('DELETE FROM quarter_applications WHERE employee_profile_id = ?', [pid]);
+    const { reRank } = await import('../src/services/waitingList.js');
+    await reRank('III');
+  });
+});
+
+describe('the clerk may apply too, but cannot check their own application', () => {
+  test('own application: no verify / forward / reject by the applicant; another checker (the super admin) can', async () => {
+    const fd = new FormData(); fd.append('preferred_quarter_type', 'III'); fd.append('colony_1', 'Railway Colony A');
+    const [[{ pid }]] = await pool.query("SELECT id AS pid FROM employee_profiles WHERE employee_id = 'CLK2001'");
+    const app = await as.clerk.form('/api/applications', fd);
+    assert.equal(app.status, 201, app.text);
+    const own = await as.clerk.post(`/api/applications/${app.json.id}/verify`);
+    assert.equal(own.status, 422);
+    assert.match(own.json.message, /your own application/);
+    assert.equal((await as.clerk.post(`/api/applications/${app.json.id}/reject`, { remarks: 'x' })).status, 422);
+    assert.equal((await as.super.post(`/api/applications/${app.json.id}/verify`)).status, 200, 'somebody else checks it');
+    assert.ok((await as.super.get('/api/approval-queue?type=III')).json.entries.some((e) => e.application.id === app.json.id), 'and it is in the line');
     await pool.query('DELETE FROM quarter_applications WHERE employee_profile_id = ?', [pid]);
     const { reRank } = await import('../src/services/waitingList.js');
     await reRank('III');

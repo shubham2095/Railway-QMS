@@ -92,6 +92,12 @@ export const requireRole = (...roles) => (req, _res, next) => {
   next();
 };
 
+/** Everybody except the super admin may apply for a quarter (employees, admins, the clerk, the department desks). */
+export const requireApplicant = (req, _res, next) => {
+  if (req.user.hasRole('super_admin') || !req.user.roles.length) throw new HttpError(403, 'The super admin does not apply for quarters.');
+  next();
+};
+
 export const requirePermission = (permission) => (req, _res, next) => {
   if (!req.user.hasPermission(permission)) {
     throw new HttpError(403, 'You do not have permission to perform this action.');

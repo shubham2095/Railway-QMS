@@ -48,6 +48,8 @@ export function AuthProvider({ children }) {
       refresh,
       roles,
       hasRole: (...slugs) => slugs.some((s) => roles.includes(s)),
+      // everybody except the super admin may apply for a quarter (same rule as the API)
+      canApply: roles.length > 0 && !roles.includes('super_admin'),
       // super_admin shortcut - full access (same rule as the API)
       hasPermission: (slug) => roles.includes('super_admin') || perms.includes(slug),
     };

@@ -45,8 +45,9 @@ function Forbidden() {
 }
 
 /** Route guard - the API enforces the same rules; this only avoids showing dead pages. */
-function Guard({ roles, permission, children }) {
-  const { hasRole, hasPermission } = useAuth();
+function Guard({ roles, permission, applicant, children }) {
+  const { hasRole, hasPermission, canApply } = useAuth();
+  if (applicant && !canApply) return <Forbidden />;
   if (roles && !hasRole(...roles)) return <Forbidden />;
   if (permission && !hasPermission(permission)) return <Forbidden />;
   return children;
@@ -88,7 +89,7 @@ export default function App() {
         <Route path="/profile/edit" element={<ProfileEdit />} />
 
         <Route path="/applications" element={<Applications />} />
-        <Route path="/applications/new" element={<Guard roles={['employee', 'admin']}><ApplicationForm /></Guard>} />
+        <Route path="/applications/new" element={<Guard applicant><ApplicationForm /></Guard>} />
         <Route path="/applications/:id" element={<ApplicationDetail />} />
 
         <Route path="/employees" element={<Guard roles={STAFF}><Employees /></Guard>} />

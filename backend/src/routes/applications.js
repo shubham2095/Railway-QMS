@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { config } from '../config/index.js';
 import { find, first, insert, query, transaction } from '../db.js';
 import { QUARTER_TYPES, APPLICATION_STATUSES } from '../domain.js';
-import { requirePermission, requireRole } from '../middleware/auth.js';
+import { requireApplicant, requirePermission } from '../middleware/auth.js';
 import * as applications from '../services/applications.js';
 import { DomainError, HttpError, abortUnless, bool, idParam, optInt, optStr, reqEnum, reqStr, validate } from '../utils/http.js';
 import { parseJson } from '../utils/helpers.js';
@@ -67,9 +67,6 @@ const createSchema = z.object({
   });
 });
 
-// Who may apply for a quarter: employees and admins (their application also goes through the clerk and the line). Not the super admin.
-const APPLICANT_ROLES = ['employee', 'admin'];
-
 const decideSchema = z.object({
   decision: reqEnum('decision', ['approve', 'reject']),
   remarks: optStr('remarks', 1000),
@@ -116,7 +113,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/applications  (multipart: fields + documents[] + document_categories[])
-router.post('/', requireRole(...APPLICANT_ROLES), upload.array('documents', 10), async (req, res) => {
+router.post('/', requireApplicant, upload.array('documents', 10), async (req, res) => {
   const files = req.files ?? [];
   try {
     const profile = req.user.profile;
@@ -204,6 +201,7 @@ router.post('/:id/verify', requirePermission('application.verify'), async (req, 
   if (app.status !== 'submitted') throw new DomainError('Only submitted applications can be verified.', 'status');
   const { remarks } = validate(z.object({ remarks: optStr('remarks', 1000) }), req.body);
 
+  await applications.assertNotOwnApplication(app, req.user, 'verify');
   const status = await transaction(async () => {
     const checked = await applications.verifyApplication(app, req.user);
     if (checked.status !== 'waitlisted') return checked.status; // not eligible: stays with the clerk
@@ -235,6 +233,7 @@ router.post('/:id/forward', requirePermission('application.verify'), async (req,
       'status',
     );
   }
+  await applications.assertNotOwnApplication(app, req.user, 'forward');
   await applications.forwardApplication(app, req.user, remarks ?? null);
   res.json({ message: 'Forwarded to the admin for approval.' });
 });
@@ -246,6 +245,7 @@ router.post('/:id/reject', requirePermission('application.verify'), async (req, 
   if (!['submitted', 'ineligible'].includes(app.status)) {
     throw new DomainError('The clerk can reject an application only before it is forwarded to the admin.', 'status');
   }
+  await applications.assertNotOwnApplication(app, req.user, 'reject');
   await applications.rejectApplication(app, req.user, remarks);
   res.json({ message: 'Application rejected.' });
 });

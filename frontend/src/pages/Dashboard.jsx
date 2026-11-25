@@ -12,7 +12,7 @@ function Badge({ n }) {
 
 export default function Dashboard() {
   useHeader('Dashboard', 'Estate overview and your quarter status');
-  const { badges, hasRole } = useAuth();
+  const { badges, canApply, hasRole } = useAuth();
   const q = useApi('/dashboard');
 
   return (
@@ -83,8 +83,8 @@ export default function Dashboard() {
               </>
             )}
 
-            {/* Employees and admins can apply for a quarter; clerks and department desks cannot. */}
-            {hasRole('employee', 'admin') && (
+            {/* Everybody except the super admin can apply for a quarter. */}
+            {canApply && (
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card title="My applications" actions={<Link to="/applications/new" className="rounded-md bg-rail px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink">New application</Link>}>
                   {d.my_applications.length === 0 && <p className="text-sm text-slate-400">You have not submitted any applications yet.</p>}

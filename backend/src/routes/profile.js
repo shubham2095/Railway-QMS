@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { find, first, insert, query, scalar, transaction, update } from '../db.js';
 import { CATEGORIES, SERVICE_TYPES } from '../domain.js';
-import { requireRole } from '../middleware/auth.js';
+import { requireApplicant } from '../middleware/auth.js';
 import { audit, subject } from '../services/audit.js';
 import { serviceYears } from '../services/eligibility.js';
 import { isProfileComplete, missingProfileFields } from '../services/profile.js';
@@ -77,7 +77,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/profile  (create or update own profile + the editable account details)
-router.put('/', requireRole('employee', 'admin'), async (req, res) => {
+router.put('/', requireApplicant, async (req, res) => {
   const data = validate(profileSchema, req.body);
   const user = req.user;
 
@@ -122,7 +122,7 @@ router.put('/', requireRole('employee', 'admin'), async (req, res) => {
 });
 
 // POST /api/profile/family
-router.post('/family', requireRole('employee', 'admin'), async (req, res) => {
+router.post('/family', requireApplicant, async (req, res) => {
   const profile = req.user.profile;
   if (!profile) throw new HttpError(422, 'Complete your profile before adding family members.');
   const data = validate(familySchema, req.body);

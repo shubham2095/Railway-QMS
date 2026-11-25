@@ -47,7 +47,7 @@ const Section = ({ title, children }) => (
 );
 
 export default function Layout() {
-  const { user, badges, hasRole, hasPermission, logout, refresh, needsProfile } = useAuth();
+  const { user, badges, hasRole, hasPermission, logout, refresh, needsProfile, canApply } = useAuth();
   const { flash, success, clear } = useFlash();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -100,7 +100,7 @@ export default function Layout() {
               <NavItem to="/vacations" icon="exit" badge={badges.clearances_for_me ?? 0} onClick={close}>Vacations</NavItem>
               <NavItem to="/certificates" icon="seal" onClick={close}>Certificates</NavItem>
               <NavItem to="/notifications" icon="bell" onClick={close}>Notifications</NavItem>
-              <NavItem to="/profile" icon="user" onClick={close}>{hasRole('employee', 'admin') ? 'My Profile' : 'My Account'}</NavItem>
+              <NavItem to="/profile" icon="user" onClick={close}>{canApply ? 'My Profile' : 'My Account'}</NavItem>
             </Section>
 
             {hasRole('quarter_clerk', 'estate_officer', 'admin', 'super_admin') && (

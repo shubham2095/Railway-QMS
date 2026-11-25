@@ -12,7 +12,7 @@ import { useAction, useApi } from '../lib/hooks.js';
 export default function ProfileShow() {
   useHeader('My Profile', 'Employee details and family particulars');
   const q = useApi('/profile');
-  const { hasRole, user: me } = useAuth();
+  const { canApply, user: me } = useAuth();
   const flash = useFlash();
   const add = useAction();
   const [form, setForm] = useState({ name: '', relation: '', date_of_birth: '', is_dependent: true });
@@ -37,7 +37,7 @@ export default function ProfileShow() {
   return (
     <Async q={q}>
       {({ user, profile, family_members: family }) => {
-        if (!profile && !hasRole('employee', 'admin')) {
+        if (!profile && !canApply) {
           // Estate-office staff (clerk / admin / super admin) have an account, not an employee profile.
           return (
             <Card title="My account">

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useApi } from '../lib/hooks.js';
 import { quarterTypeLabel } from '../lib/constants.js';
 
-export const MAX_CHOICES = 3;
-const ORDINAL = ['1st', '2nd', '3rd'];
+export const MAX_CHOICES = 5;
+const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th'];
 
 /** Returns a message when the choices break a rule (a gap, or the same colony twice), else null. */
 export function colonyProblem(choices) {
@@ -35,7 +35,7 @@ const Arrow = ({ up }) => (
 );
 
 /**
- * Up to three preferred colonies in order of priority (1 = most wanted).
+ * Up to five preferred colonies in order of priority (1 = most wanted).
  * Colonies that exist in the quarter inventory for the chosen quarter type / station are shown as
  * one-click chips; any colony or area name can also be typed.
  */
@@ -95,7 +95,7 @@ export default function ColonyPreferences({ value, onChange, quarterType, statio
         )}
       </div>
 
-      {/* the three ranked choices */}
+      {/* the five ranked choices */}
       <datalist id="colony-options">{options.map((o) => <option key={o.colony_name} value={o.colony_name} />)}</datalist>
       <ol className="mt-3 space-y-2">
         {value.map((v, i) => (

@@ -38,20 +38,26 @@ const upload = multer({
 
 const createSchema = z.object({
   preferred_quarter_type: reqEnum('preferred quarter type', QUARTER_TYPES),
-  // Up to 3 colonies in order of priority. The 1st choice is required; no gaps, no repeats.
+  // Up to 5 colonies in order of priority. The 1st choice is required; no gaps, no repeats.
   colony_1: reqStr('first choice colony', 255),
   colony_2: optStr('second choice colony', 255),
   colony_3: optStr('third choice colony', 255),
+  colony_4: optStr('fourth choice colony', 255),
+  colony_5: optStr('fifth choice colony', 255),
   station: optStr('station'),
   division: optStr('division'),
   family_size: optInt('family size', { min: 1, max: 30 }),
   medical_ground: bool,
   special_grounds: optStr('special grounds', 2000),
 }).superRefine((d, ctx) => {
-  const picks = [d.colony_1, d.colony_2, d.colony_3];
-  if (d.colony_3 && !d.colony_2) {
-    ctx.addIssue({ code: 'custom', path: ['colony_3'], message: 'Choose the second choice colony before the third.' });
+  const picks = [d.colony_1, d.colony_2, d.colony_3, d.colony_4, d.colony_5];
+  const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth'];
+  for (let i = 2; i < picks.length; i++) {
+    if (picks[i] && !picks[i - 1]) {
+      ctx.addIssue({ code: 'custom', path: [`colony_${i + 1}`], message: `Choose the ${ORDINAL[i - 1]} choice colony before the ${ORDINAL[i]}.` });
+    }
   }
+  if (d.colony_2 && !d.colony_1) ctx.addIssue({ code: 'custom', path: ['colony_2'], message: 'Choose the first choice colony before the second.' });
   const seen = new Set();
   picks.forEach((name, i) => {
     if (!name) return;
@@ -116,7 +122,7 @@ router.post('/', requireRole('employee'), upload.array('documents', 10), async (
       throw new HttpError(422, msg, { profile: [msg] });
     }
     const data = validate(createSchema, req.body);
-    data.colonies = [data.colony_1, data.colony_2, data.colony_3].filter(Boolean);
+    data.colonies = [data.colony_1, data.colony_2, data.colony_3, data.colony_4, data.colony_5].filter(Boolean);
 
     const application = await applications.submitApplication(profile, req.user, data);
 

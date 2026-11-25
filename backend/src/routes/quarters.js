@@ -101,7 +101,7 @@ router.get('/:id', staff, async (req, res) => {
   );
 
   // Module 6 - top of the matching waiting-list queue when vacant.
-  // For each applicant: which of their (up to 3) colony choices is this quarter's colony, if any.
+  // For each applicant: which of their (up to 5) colony choices is this quarter's colony, if any.
   const suggestions = (await suggestionsFor(quarter)).map((e) => ({
     ...e,
     colony_choice: choiceFor(e.application.colony_preferences, quarter.colony_name),

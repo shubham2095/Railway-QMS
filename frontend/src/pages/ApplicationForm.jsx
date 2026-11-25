@@ -19,7 +19,7 @@ export default function ApplicationForm() {
     preferred_quarter_type: 'I', station: profile?.station ?? '', division: profile?.division ?? '',
     family_size: 1, medical_ground: false, special_grounds: '',
   });
-  const [colonies, setColonies] = useState(['', '', '']); // up to 3, in order of priority
+  const [colonies, setColonies] = useState(['', '', '', '', '']); // up to 5, in order of priority
   const [localError, setLocalError] = useState('');
   const [docs, setDocs] = useState([{ category: 'service_certificate', file: null }]);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));

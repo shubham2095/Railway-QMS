@@ -175,7 +175,7 @@ CREATE TABLE quarter_applications (
 CREATE TABLE application_colony_preferences (
   id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   quarter_application_id BIGINT UNSIGNED NOT NULL,
-  priority               TINYINT UNSIGNED NOT NULL,      -- 1 = first choice, 2 = second, 3 = third
+  priority               TINYINT UNSIGNED NOT NULL,      -- 1 = first choice ... 5 = fifth
   colony_name            VARCHAR(255) NOT NULL,
   created_at             DATETIME NULL,
   updated_at             DATETIME NULL,

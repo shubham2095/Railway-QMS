@@ -1,6 +1,6 @@
 import { insert, query } from '../db.js';
 
-export const MAX_COLONY_CHOICES = 3;
+export const MAX_COLONY_CHOICES = 5;
 
 /** Save an application's ranked colony choices: names[0] is the 1st choice, names[1] the 2nd, ... */
 export async function savePreferences(applicationId, names) {
@@ -25,7 +25,7 @@ export async function preferencesFor(applicationIds) {
   return map;
 }
 
-/** Which choice (1..3) a colony is for one applicant, or null when it is not on their list (case-insensitive). */
+/** Which choice (1..5) a colony is for one applicant, or null when it is not on their list (case-insensitive). */
 export const choiceFor = (preferences, colonyName) => {
   if (!colonyName) return null;
   const wanted = colonyName.trim().toLowerCase();

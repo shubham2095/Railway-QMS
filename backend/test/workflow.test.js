@@ -862,7 +862,7 @@ describe('employee self-signup', () => {
     assert.deepEqual(Object.keys(all[0]).sort(), ['colony_name', 'quarters', 'vacant']);
   });
 
-  test('applying with up to 3 colonies in priority order', async () => {
+  test('applying with up to 5 colonies in priority order', async () => {
     const c = client();
     await c.login('sita@example.com', 'longenough1');
     const apply = async (fields) => {
@@ -879,6 +879,20 @@ describe('employee self-signup', () => {
       { priority: 1, colony_name: 'Saket' }, { priority: 2, colony_name: 'Hauz Khas' }, { priority: 3, colony_name: 'Connaught Place' },
     ]);
     assert.equal(d.preferred_colony, 'Saket', 'first choice is kept on the application itself');
+
+    // five choices are allowed, in the order given
+    const five = await apply({ colony_1: 'Saket', colony_2: 'Hauz Khas', colony_3: 'Connaught Place', colony_4: 'Lodhi Colony', colony_5: 'Karol Bagh' });
+    assert.equal(five.status, 201, five.text);
+    assert.deepEqual((await c.get(`/api/applications/${five.json.id}`)).json.application.colony_preferences.map((p) => `${p.priority}.${p.colony_name}`),
+      ['1.Saket', '2.Hauz Khas', '3.Connaught Place', '4.Lodhi Colony', '5.Karol Bagh']);
+    // a sixth is not a choice: it is ignored
+    const six = await apply({ colony_1: 'A1', colony_2: 'A2', colony_3: 'A3', colony_4: 'A4', colony_5: 'A5', colony_6: 'A6' });
+    assert.equal(six.status, 201, six.text);
+    assert.equal((await c.get(`/api/applications/${six.json.id}`)).json.application.colony_preferences.length, 5);
+    // a gap before the 5th is refused
+    const gap5 = await apply({ colony_1: 'Saket', colony_2: 'Hauz Khas', colony_3: 'Connaught Place', colony_5: 'Karol Bagh' });
+    assert.equal(gap5.status, 422);
+    assert.match(gap5.json.errors.colony_5[0], /fourth choice/i);
 
     // one choice is enough; two is fine
     assert.equal((await apply({ colony_1: 'Railway Colony A' })).status, 201);

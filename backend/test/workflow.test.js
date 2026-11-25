@@ -143,6 +143,8 @@ describe('authentication & RBAC', () => {
       const fd = new FormData(); fd.append('preferred_quarter_type', 'II'); fd.append('colony_1', 'Railway Colony C');
       assert.equal((await as.clerk.form('/api/applications', fd)).status, 403, 'the clerk cannot apply for a quarter');
       assert.equal((await as.clerk.put('/api/profile', {})).status, 403);
+      assert.equal((await as.super.form('/api/applications', fd)).status, 403, 'the super admin does not apply for a quarter either');
+      assert.equal((await as.super.put('/api/profile', {})).status, 403);
     }
     // the clerk no longer offers quarters; the super admin can do everything
     assert.equal((await as.clerk.post('/api/quarters/1/offer', { waiting_list_entry_id: 1 })).status, 403, 'the admin gives the quarter, not the clerk');
@@ -266,7 +268,7 @@ describe('super admin deletes an employee', () => {
   });
 });
 
-describe('an admin can apply for a quarter too, but never decides on their own application', () => {
+describe('an admin can apply for a quarter too (the super admin cannot), but never decides on their own application', () => {
   test('profile first, then the same clerk check and the same line; another admin / the super admin approves', async () => {
     const mkFd = () => { const fd = new FormData(); fd.append('preferred_quarter_type', 'III'); fd.append('colony_1', 'Railway Colony A'); return fd; };
     // the demo admin has a complete profile (an admin without one would be sent to complete it first)

@@ -15,7 +15,7 @@ const userOfProfile = (profileId) =>
     [profileId],
   );
 
-/** An admin / super admin who applied for a quarter must not approve, reject or allot their own application. */
+/** An admin who applied for a quarter must not approve, reject or allot their own application. */
 export async function assertNotOwnApplication(application, actor, verb = 'decide on') {
   const owner = await first('SELECT user_id FROM employee_profiles WHERE id = ?', [application.employee_profile_id]);
   if (owner && owner.user_id === actor.id) {

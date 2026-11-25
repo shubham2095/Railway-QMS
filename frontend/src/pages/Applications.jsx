@@ -30,7 +30,7 @@ export default function Applications() {
             {filters.any('status', 'type') && <button onClick={filters.clear} className="text-xs font-medium text-slate-500 hover:underline">Clear</button>}
           </div>
         ) : <div />}
-        {hasRole('employee', 'admin', 'super_admin') ? <Link to="/applications/new" className="btn-signal">New application</Link> : <div />}
+        {hasRole('employee', 'admin') ? <Link to="/applications/new" className="btn-signal">New application</Link> : <div />}
       </div>
 
       <Async q={q}>

@@ -83,8 +83,8 @@ export default function Dashboard() {
               </>
             )}
 
-            {/* Employees and the admin side can apply for a quarter; clerks and department desks cannot. */}
-            {hasRole('employee', 'admin', 'super_admin') && (
+            {/* Employees and admins can apply for a quarter; clerks and department desks cannot. */}
+            {hasRole('employee', 'admin') && (
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card title="My applications" actions={<Link to="/applications/new" className="rounded-md bg-rail px-3 py-1.5 text-xs font-semibold text-white hover:bg-ink">New application</Link>}>
                   {d.my_applications.length === 0 && <p className="text-sm text-slate-400">You have not submitted any applications yet.</p>}

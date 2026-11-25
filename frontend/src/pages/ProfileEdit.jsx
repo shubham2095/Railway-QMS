@@ -45,7 +45,7 @@ export default function ProfileEdit() {
     setF({ ...EMPTY, ...saved, name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '' });
   }, [q.data]);
   // staff accounts (no employee role, no profile) have nothing to complete
-  if (!hasRole('employee', 'admin', 'super_admin') && !me.profile) return <Navigate to="/profile" replace />;
+  if (!hasRole('employee', 'admin') && !me.profile) return <Navigate to="/profile" replace />;
 
   const submit = async (e) => {
     e.preventDefault();

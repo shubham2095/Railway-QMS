@@ -67,8 +67,8 @@ const createSchema = z.object({
   });
 });
 
-// Who may apply for a quarter: employees, and the admin side (their application also goes through the clerk and the line).
-const APPLICANT_ROLES = ['employee', 'admin', 'super_admin'];
+// Who may apply for a quarter: employees and admins (their application also goes through the clerk and the line). Not the super admin.
+const APPLICANT_ROLES = ['employee', 'admin'];
 
 const decideSchema = z.object({
   decision: reqEnum('decision', ['approve', 'reject']),

@@ -182,3 +182,7 @@ several reports counts once; the same PF number with the same quarter type more 
 Gazetted lists: `convert_gazetted.py` (same "oldest wins" rule per list, report in `gazetted-duplicates-report.csv`).
 Loaded by `IMPORT_QUARTERS=true`. To empty the list in a database set `CLEAR_WAITING_LIST=true` for one restart, then remove it
 (locally: `npm run db:clear-waitlist`).
+
+Type III and IV (sheet "Master Data-III & IV", one row per quarter with its own type) go through the same converter. For
+types III and up a quarter that is repeated in its sheet, or already listed under an earlier type (same colony + number),
+is **not added again**; those rows are listed in `database/data/quarters-duplicates-report.csv`.

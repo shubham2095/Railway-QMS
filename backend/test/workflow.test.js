@@ -320,6 +320,20 @@ describe('the clerk may apply too, but cannot check their own application', () =
   });
 });
 
+describe('pending requests (old list): filter by request-number type', () => {
+  test('unit filter splits DRM/HP from DRM/BTHP and lists the units that exist', async () => {
+    await pool.query("INSERT INTO legacy_waiting_list (request_no, quarter_type, list_name, staff_kind, unit, category) VALUES ('DRM/HP/JAN-20-000001', 'II', 'Type-II', 'staff', 'HP', 'essential'), ('DRM/BTHP/JAN-20-000001', 'II', 'Type-II', 'staff', 'BTHP', 'essential'), ('DRM/BTHP/JAN-20-000002', 'II', 'Type-II', 'staff', 'BTHP', 'non_essential')");
+    const all = (await as.clerk.get('/api/legacy-waiting-list?list=Type-II')).json;
+    assert.deepEqual(all.units.map((u) => [u.unit, Number(u.total)]), [['BTHP', 2], ['HP', 1]]);
+    const hp = (await as.clerk.get('/api/legacy-waiting-list?unit=HP')).json;
+    assert.ok(hp.data.length === 1 && hp.data.every((r) => r.request_no.startsWith('DRM/HP/')));
+    const bthp = (await as.clerk.get('/api/legacy-waiting-list?unit=BTHP&category=essential')).json;
+    assert.deepEqual(bthp.data.map((r) => r.request_no), ['DRM/BTHP/JAN-20-000001'], 'unit and category filters combine');
+    assert.equal((await as.employee.get('/api/legacy-waiting-list')).status, 403);
+    await pool.query("DELETE FROM legacy_waiting_list WHERE request_no LIKE 'DRM/%/JAN-20-00000%'");
+  });
+});
+
 describe('application lifecycle (new employee, upload, verify, ineligible)', () => {
   let newUser;
   before(async () => {

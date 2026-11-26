@@ -10,7 +10,7 @@ export default function LegacyWaitingList() {
   useHeader('Pending Requests (old list)', 'Quarter requests made before this system — in line order');
   const filters = useFilters();
   const q = useApi('/legacy-waiting-list', Object.fromEntries(filters.params));
-  const [draft, setDraft] = useState({ q: filters.get('q'), list: filters.get('list'), category: filters.get('category') });
+  const [draft, setDraft] = useState({ q: filters.get('q'), list: filters.get('list'), category: filters.get('category'), unit: filters.get('unit') });
   const d = (k) => (e) => setDraft((s) => ({ ...s, [k]: e.target.value }));
 
   return (
@@ -39,8 +39,19 @@ export default function LegacyWaitingList() {
           <label className="lbl-up">Category</label>
           <select value={draft.category} onChange={d('category')} className="input-sm mt-1"><option value="">All</option><option value="essential">Essential</option><option value="non_essential">Non-essential</option></select>
         </div>
+        <Async q={q}>
+          {({ units }) => (
+            <div>
+              <label className="lbl-up">Request no. type</label>
+              <select value={draft.unit} onChange={d('unit')} className="input-sm mt-1">
+                <option value="">All</option>
+                {units.map((u) => <option key={u.unit} value={u.unit}>{u.unit === 'GAZETTED' ? 'Gazetted lists' : `DRM/${u.unit}`} ({u.total})</option>)}
+              </select>
+            </div>
+          )}
+        </Async>
         <button className="btn-primary py-1.5">Filter</button>
-        {filters.any('q', 'list', 'category') && <button type="button" onClick={() => { setDraft({ q: '', list: '', category: '' }); filters.clear(); }} className="text-xs font-medium text-slate-500 hover:underline">Clear</button>}
+        {filters.any('q', 'list', 'category', 'unit') && <button type="button" onClick={() => { setDraft({ q: '', list: '', category: '', unit: '' }); filters.clear(); }} className="text-xs font-medium text-slate-500 hover:underline">Clear</button>}
       </form>
 
       <Async q={q}>
